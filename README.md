@@ -1,4 +1,4 @@
-# KAI Homepage
+# Personal Homepage
 
 컴퓨터 비전, 머신 비전, 인공지능을 소개하는 개인 홈페이지입니다. 별도 설치나
 빌드 과정 없이 `index.html`을 바로 배포합니다.
