@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="아이디어를 선명한 디지털 경험으로 만드는 KAI의 개인 홈페이지입니다."
+    />
+    <meta name="theme-color" content="#f5f2ea" />
+    <title>KAI — Personal Homepage</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./script.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+
+    <header class="site-header">
+      <a class="logo" href="#top" aria-label="KAI 홈페이지 처음으로">KAI<span>.</span></a>
+      <button
+        class="menu-button"
+        type="button"
+        aria-expanded="false"
+        aria-controls="site-navigation"
+      >
+        메뉴
+      </button>
+      <nav id="site-navigation" class="site-nav" aria-label="주요 메뉴">
+        <a href="#about">소개</a>
+        <a href="#work">작업</a>
+        <a href="#contact">연락</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section id="top" class="hero">
+        <div class="hero-copy reveal">
+          <p class="eyebrow">Designer · Builder · Curious Mind</p>
+          <h1>좋은 아이디어를<br /><em>기억에 남는 경험</em>으로.</h1>
+          <p class="hero-description">
+            안녕하세요, KAI입니다. 사람과 기술 사이의 복잡함을 덜어내고
+            단순하고 아름다운 디지털 경험을 만듭니다.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#work">작업 보기</a>
+            <a class="button button-text" href="#contact">함께 이야기하기 <span>↗</span></a>
+          </div>
+        </div>
+
+        <div class="hero-art reveal" aria-hidden="true">
+          <div class="orbit orbit-large"></div>
+          <div class="orbit orbit-small"></div>
+          <div class="art-card">
+            <p>Currently exploring</p>
+            <strong>Clear ideas,<br />warm details.</strong>
+            <span>Seoul · 2026</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="about" class="section about">
+        <p class="section-number reveal">01 / About</p>
+        <div class="about-content reveal">
+          <h2>복잡한 문제에서<br />단순한 답을 찾습니다.</h2>
+          <div class="about-text">
+            <p>
+              호기심에서 시작해 관찰하고, 만들고, 다시 다듬습니다. 보기 좋은
+              결과뿐 아니라 실제로 쓰기 편한 결과를 중요하게 생각합니다.
+            </p>
+            <ul class="skills" aria-label="관심 분야">
+              <li>Product Design</li>
+              <li>Web Development</li>
+              <li>Creative Direction</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="work" class="section work">
+        <div class="section-heading reveal">
+          <p class="section-number">02 / Selected Work</p>
+          <h2>최근 작업</h2>
+        </div>
+
+        <div class="project-list">
+          <article class="project-card project-coral reveal">
+            <div class="project-meta">
+              <span>01</span>
+              <span>Brand · Web</span>
+            </div>
+            <div class="project-visual" aria-hidden="true">
+              <span class="project-word">MOMO</span>
+            </div>
+            <div class="project-caption">
+              <h3>Momo Studio</h3>
+              <p>작은 브랜드의 큰 이야기를 담은 웹 경험</p>
+            </div>
+          </article>
+
+          <article class="project-card project-blue reveal">
+            <div class="project-meta">
+              <span>02</span>
+              <span>Product · Mobile</span>
+            </div>
+            <div class="project-visual" aria-hidden="true">
+              <div class="phone-shape">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+            <div class="project-caption">
+              <h3>Daily Piece</h3>
+              <p>매일의 기록을 가볍게 이어주는 모바일 서비스</p>
+            </div>
+          </article>
+
+          <article class="project-card project-green reveal">
+            <div class="project-meta">
+              <span>03</span>
+              <span>Identity · Editorial</span>
+            </div>
+            <div class="project-visual" aria-hidden="true">
+              <span class="project-symbol">○<br />△</span>
+            </div>
+            <div class="project-caption">
+              <h3>Common Ground</h3>
+              <p>사람과 장소를 연결하는 문화 프로젝트 아이덴티티</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="contact" class="contact">
+        <div class="contact-inner reveal">
+          <p class="section-number">03 / Contact</p>
+          <h2>다음 이야기를<br /><em>함께 만들까요?</em></h2>
+          <a class="contact-link" href="mailto:hello@example.com">
+            hello@example.com <span>↗</span>
+          </a>
+          <p class="contact-note">
+            위 이메일 주소를 본인의 주소로 바꿔 사용하세요.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>© <span id="year"></span> KAI</p>
+      <p>Built with care · Hosted on GitHub Pages</p>
+      <a href="#top">위로 ↑</a>
+    </footer>
+  </body>
+</html>
