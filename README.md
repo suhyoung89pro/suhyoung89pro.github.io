@@ -1,14 +1,14 @@
 # KAI Homepage
 
-GitHub Pages에서 무료로 공개할 수 있는 개인 홈페이지입니다. 별도 설치나
+컴퓨터 비전, 머신 비전, 인공지능을 소개하는 개인 홈페이지입니다. 별도 설치나
 빌드 과정 없이 `index.html`을 바로 배포합니다.
 
 ## 내용 바꾸기
 
 - 이름과 소개 문구: `index.html`
-- 이메일 주소: `index.html`의 `hello@example.com` 두 곳
+- GitHub 링크: `index.html`의 `github.com/suhyoung89pro`
 - 색상과 화면 스타일: `styles.css` 상단의 색상 변수
-- 작업 카드: `index.html`의 `Selected Work` 영역
+- 관심 분야 카드: `index.html`의 `Focus Areas` 영역
 
 ## GitHub Pages로 공개하기
 
