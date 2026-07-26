@@ -368,3 +368,67 @@
 }
 
 .project-contact > span { color: #5c5100; }
+
+/* Service navigation additions */
+.card-detail-link {
+  display: inline-flex;
+  margin-top: 1.1rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 0.18rem;
+}
+
+.case-service-links {
+  display: grid;
+  margin-top: clamp(3rem, 7vw, 6rem);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.case-service-links a {
+  display: flex;
+  min-height: 130px;
+  padding: 1.35rem;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--white);
+}
+
+.case-service-links span {
+  color: var(--blue);
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.case-service-links strong {
+  font-size: clamp(0.95rem, 1.5vw, 1.15rem);
+  letter-spacing: -0.03em;
+}
+
+@media (max-width: 680px) {
+  .header-actions {
+    gap: 0.55rem;
+  }
+
+  .github-link,
+  .nav-link-secondary {
+    display: none;
+  }
+
+  .nav-link {
+    font-size: 0.72rem;
+  }
+
+  .kakao-link {
+    font-size: 0.68rem;
+  }
+
+  .case-service-links {
+    grid-template-columns: 1fr;
+  }
+}
