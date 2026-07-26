@@ -351,3 +351,20 @@
     border-left: 0;
   }
 }
+
+.kakao-link {
+  padding: 0.48rem 0.72rem;
+  border-radius: 999px;
+  background: #fee500;
+  color: #191919;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.project-contact,
+.scope-note > a {
+  background: #fee500;
+  color: #191919;
+}
+
+.project-contact > span { color: #5c5100; }
