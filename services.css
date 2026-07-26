@@ -390,3 +390,170 @@
     font-weight: 850;
   }
 }
+/* Compact reading layout */
+.services-main {
+  width: min(100%, 1040px);
+  margin: 0 auto;
+  padding-bottom: 4rem;
+}
+
+.services-hero {
+  padding: clamp(3.25rem, 6vw, 5rem) 0 clamp(2.5rem, 5vw, 3.5rem);
+}
+
+.services-hero h1 {
+  max-width: 850px;
+  font-size: clamp(3rem, 5.5vw, 4.8rem);
+  letter-spacing: -0.055em;
+  line-height: 1.02;
+}
+
+.hero-summary {
+  display: block;
+  margin-top: 1.5rem;
+}
+
+.hero-summary > p {
+  max-width: 660px;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.hero-actions {
+  margin-top: 1.2rem;
+}
+
+.audience-strip article {
+  min-height: 100px;
+  padding: 1rem 1.15rem;
+}
+
+.service-scope,
+.process-section {
+  padding: clamp(3rem, 5vw, 4rem) 0;
+}
+
+.service-scope {
+  margin-top: clamp(3rem, 5vw, 4rem);
+}
+
+.section-heading {
+  display: block;
+  margin-bottom: 1.5rem;
+}
+
+.section-heading > p {
+  margin-bottom: 0.45rem;
+}
+
+.section-heading > h2 {
+  font-size: clamp(1.9rem, 3.2vw, 2.8rem);
+  letter-spacing: -0.045em;
+}
+
+.service-grid {
+  gap: 0.65rem;
+}
+
+.service-card {
+  min-height: 245px;
+  padding: clamp(1.25rem, 2vw, 1.6rem);
+  border-radius: 1rem;
+}
+
+.service-card h2 {
+  margin: clamp(1.5rem, 3vw, 2.2rem) 0 0.5rem;
+  font-size: clamp(1.35rem, 2.2vw, 1.9rem);
+  letter-spacing: -0.04em;
+}
+
+.service-card > p:not(.service-tags) {
+  max-width: 32rem;
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.service-tags {
+  padding-top: 0.75rem;
+}
+
+.process-grid li {
+  min-height: 135px;
+  padding: 1rem;
+}
+
+.process-grid span {
+  margin-bottom: 1.8rem;
+}
+
+.services-experience {
+  margin-top: clamp(3rem, 5vw, 4rem);
+}
+
+.services-final-cta {
+  display: block;
+  padding: clamp(1.5rem, 3vw, 2.2rem);
+}
+
+.services-final-cta h2 {
+  font-size: clamp(1.9rem, 3vw, 2.6rem);
+  letter-spacing: -0.045em;
+}
+
+.services-final-cta > p {
+  max-width: 38rem;
+  margin-top: 0.7rem;
+}
+
+.services-final-cta > a {
+  margin-top: 1.2rem;
+}
+
+@media (max-width: 680px) {
+  .services-hero {
+    padding: 2.75rem 0 2.25rem;
+  }
+
+  .services-hero h1 {
+    font-size: clamp(2.35rem, 10.5vw, 3.2rem);
+  }
+
+  .hero-summary > p {
+    font-size: 0.92rem;
+  }
+
+  .audience-strip article {
+    min-height: 82px;
+    padding: 0.85rem 1rem;
+  }
+
+  .service-scope,
+  .process-section {
+    padding: 2.75rem 0;
+  }
+
+  .service-scope {
+    margin-top: 2.75rem;
+  }
+
+  .service-card {
+    min-height: 220px;
+    padding: 1.2rem;
+  }
+
+  .service-card h2 {
+    margin-top: 1.35rem;
+  }
+
+  .process-grid li {
+    min-height: 120px;
+  }
+
+  .services-experience {
+    margin-top: 2.75rem;
+  }
+
+  .services-final-cta {
+    padding: 1.5rem;
+  }
+}
