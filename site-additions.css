@@ -9,6 +9,10 @@
   font-weight: 750;
 }
 
+.nav-link[aria-current="page"] {
+  color: var(--blue);
+}
+
 .use-cases-link {
   display: flex;
   margin-top: 0.8rem;
@@ -430,5 +434,27 @@
 
   .case-service-links {
     grid-template-columns: 1fr;
+  }
+}
+/* Fixed navigation labels */
+@media (max-width: 680px) {
+  .site-header {
+    padding: 0.75rem 0;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+  }
+
+  .identity {
+    width: 100%;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 0.75rem;
+  }
+
+  .kakao-link {
+    margin-left: auto;
   }
 }
