@@ -1,0 +1,189 @@
+{
+  "updatedAt": "2026-08-12",
+  "categories": [
+    { "id": "cooking", "name": "요리", "description": "레시피, 맛집, 푸드 예능과 크리에이터" },
+    { "id": "travel", "name": "여행", "description": "국내외 여행, 로컬 탐방과 여행 크리에이터" },
+    { "id": "music", "name": "음악", "description": "공연, 경연, 아티스트와 음악 채널" },
+    { "id": "film-drama", "name": "영화·드라마", "description": "작품, 리뷰와 배우·제작진" },
+    { "id": "gaming", "name": "게임", "description": "게임 방송, e스포츠와 스트리머" },
+    { "id": "sports", "name": "스포츠", "description": "경기, 스포츠 예능과 선수" },
+    { "id": "beauty-fashion", "name": "뷰티·패션", "description": "뷰티, 스타일과 패션 크리에이터" },
+    { "id": "tech", "name": "테크", "description": "기술, 기기 리뷰와 디지털 라이프" },
+    { "id": "lifestyle", "name": "라이프", "description": "가족, 반려동물과 일상 콘텐츠" },
+    { "id": "knowledge", "name": "지식·교양", "description": "교육, 과학, 역사와 시사 콘텐츠" }
+  ],
+  "trends": [
+    { "categoryId": "cooking", "label": "고단백 집밥", "status": "후보" },
+    { "categoryId": "cooking", "label": "에어프라이어 간식", "status": "주목" },
+    { "categoryId": "cooking", "label": "지역시장 먹방", "status": "인기" },
+    { "categoryId": "cooking", "label": "저속노화 식단", "status": "주목" },
+    { "categoryId": "travel", "label": "소도시 한 달 살기", "status": "후보" },
+    { "categoryId": "music", "label": "라이브 클립", "status": "주목" },
+    { "categoryId": "sports", "label": "러닝 크루", "status": "인기" },
+    { "categoryId": "tech", "label": "온디바이스 AI", "status": "주목" }
+  ],
+  "rankings": {
+    "cooking": {
+      "tv": {
+        "medium": "tv",
+        "eyebrow": "Broadcast",
+        "label": "TV TOP 5",
+        "basis": "MVP 샘플 편집 순위",
+        "items": [
+          {
+            "title": "오늘의 식탁",
+            "platform": "TV 방송 예시",
+            "typeLabel": "푸드 예능",
+            "summary": "제철 식재료로 한 끼를 완성하는 스튜디오형 요리 프로그램입니다.",
+            "people": [
+              { "name": "한셰프", "role": "출연자", "account": { "service": "YouTube", "url": null, "status": "링크 준비 중" } },
+              { "name": "김진행", "role": "진행자", "account": { "service": "Instagram", "url": null, "status": "검수 필요" } }
+            ]
+          },
+          {
+            "title": "골목 레시피",
+            "platform": "TV 방송 예시",
+            "typeLabel": "리얼리티",
+            "summary": "지역 상권의 숨은 메뉴와 운영 이야기를 함께 소개합니다.",
+            "people": [
+              { "name": "박미식", "role": "출연자", "account": { "service": "YouTube", "url": null, "status": "링크 준비 중" } }
+            ]
+          },
+          {
+            "title": "셰프의 주말",
+            "platform": "TV 방송 예시",
+            "typeLabel": "관찰 예능",
+            "summary": "전문 셰프가 쉬는 날 즐기는 소박한 집밥을 따라갑니다.",
+            "people": [
+              { "name": "윤주방", "role": "셰프", "account": { "service": "Instagram", "url": null, "status": "검수 필요" } }
+            ]
+          },
+          {
+            "title": "한 끼 탐험대",
+            "platform": "TV 방송 예시",
+            "typeLabel": "여행·음식",
+            "summary": "전국의 지역 음식과 그 음식을 만드는 사람을 만납니다.",
+            "people": [
+              { "name": "최한끼", "role": "진행자", "account": { "service": "YouTube", "url": null, "status": "링크 준비 중" } }
+            ]
+          },
+          {
+            "title": "우리 동네 맛지도",
+            "platform": "TV 방송 예시",
+            "typeLabel": "로컬 정보",
+            "summary": "동네 주민의 추천을 바탕으로 오래된 식당을 기록합니다.",
+            "people": [
+              { "name": "정로컬", "role": "리포터", "account": { "service": "Instagram", "url": null, "status": "검수 필요" } }
+            ]
+          }
+        ]
+      },
+      "ott": {
+        "medium": "ott",
+        "eyebrow": "Streaming",
+        "label": "OTT TOP 5",
+        "basis": "MVP 샘플 · 플랫폼별 분리 예정",
+        "items": [
+          {
+            "title": "키친 서바이벌",
+            "platform": "OTT 플랫폼 예시",
+            "typeLabel": "경연",
+            "summary": "제한된 재료와 시간 안에 창의적인 메뉴를 완성하는 경연입니다.",
+            "people": [
+              { "name": "이도전", "role": "참가자", "account": { "service": "YouTube", "url": null, "status": "링크 준비 중" } }
+            ]
+          },
+          {
+            "title": "세계의 식탁",
+            "platform": "OTT 플랫폼 예시",
+            "typeLabel": "다큐멘터리",
+            "summary": "기후와 문화가 각 지역의 식탁을 어떻게 바꾸는지 살펴봅니다.",
+            "people": [
+              { "name": "서여행", "role": "내레이터", "account": { "service": "Instagram", "url": null, "status": "검수 필요" } }
+            ]
+          },
+          {
+            "title": "셰프 다이어리",
+            "platform": "OTT 플랫폼 예시",
+            "typeLabel": "휴먼 다큐",
+            "summary": "한 접시가 완성되기까지 셰프의 일상과 고민을 기록합니다.",
+            "people": [
+              { "name": "강다이닝", "role": "셰프", "account": { "service": "Instagram", "url": null, "status": "검수 필요" } }
+            ]
+          },
+          {
+            "title": "야식 연구소",
+            "platform": "OTT 플랫폼 예시",
+            "typeLabel": "토크·요리",
+            "summary": "익숙한 야식 메뉴를 새로운 조리법으로 재해석합니다.",
+            "people": [
+              { "name": "오야식", "role": "진행자", "account": { "service": "YouTube", "url": null, "status": "링크 준비 중" } }
+            ]
+          },
+          {
+            "title": "베이킹 하우스",
+            "platform": "OTT 플랫폼 예시",
+            "typeLabel": "리얼리티",
+            "summary": "베이커들이 함께 생활하며 매주 새로운 디저트를 선보입니다.",
+            "people": [
+              { "name": "문베이커", "role": "참가자", "account": { "service": "Instagram", "url": null, "status": "검수 필요" } }
+            ]
+          }
+        ]
+      },
+      "youtube": {
+        "medium": "youtube",
+        "eyebrow": "Creator",
+        "label": "YouTube TOP 5",
+        "basis": "MVP 샘플 편집 순위",
+        "items": [
+          {
+            "title": "5분 집밥",
+            "platform": "YouTube 채널 예시",
+            "typeLabel": "간편 레시피",
+            "summary": "짧은 영상으로 재료가 단순한 한 끼 레시피를 소개합니다.",
+            "people": [
+              { "name": "이집밥", "role": "크리에이터", "account": { "service": "YouTube", "url": null, "status": "링크 준비 중" } }
+            ]
+          },
+          {
+            "title": "주말 베이커",
+            "platform": "YouTube 채널 예시",
+            "typeLabel": "베이킹",
+            "summary": "가정용 도구로 따라 할 수 있는 빵과 디저트를 만듭니다.",
+            "people": [
+              { "name": "서베이커", "role": "크리에이터", "account": { "service": "Instagram", "url": null, "status": "검수 필요" } }
+            ]
+          },
+          {
+            "title": "시장 한 바퀴",
+            "platform": "YouTube 채널 예시",
+            "typeLabel": "로컬 푸드",
+            "summary": "전통시장 상인과 제철 식재료의 이야기를 기록합니다.",
+            "people": [
+              { "name": "김시장", "role": "크리에이터", "account": { "service": "YouTube", "url": null, "status": "링크 준비 중" } }
+            ]
+          },
+          {
+            "title": "혼밥 연구소",
+            "platform": "YouTube 채널 예시",
+            "typeLabel": "1인 요리",
+            "summary": "한 사람에게 맞는 분량과 보관법을 함께 알려줍니다.",
+            "people": [
+              { "name": "박한끼", "role": "크리에이터", "account": { "service": "Instagram", "url": null, "status": "검수 필요" } }
+            ]
+          },
+          {
+            "title": "채소의 발견",
+            "platform": "YouTube 채널 예시",
+            "typeLabel": "식재료 탐구",
+            "summary": "익숙한 채소의 품종과 조리법을 깊이 있게 소개합니다.",
+            "people": [
+              { "name": "윤채소", "role": "크리에이터", "account": { "service": "YouTube", "url": null, "status": "링크 준비 중" } }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
