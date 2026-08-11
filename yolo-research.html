@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="YOLO 모델이 산업 현장에 적용된 공개 논문의 결과 이미지, 보고 성능, 인용 정보와 원문 링크를 정리합니다."
+    />
+    <link rel="canonical" href="https://suhyoung89pro.github.io/yolo-research.html" />
+    <meta name="theme-color" content="#f3f5f7" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="suhyoung89pro" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:title" content="YOLO 산업 적용 논문 아카이브" />
+    <meta
+      property="og:description"
+      content="검토 후 공개 승인된 YOLO 산업 적용 논문의 결과와 성능, 인용 정보를 확인하세요."
+    />
+    <meta property="og:url" content="https://suhyoung89pro.github.io/yolo-research.html" />
+    <meta property="og:image" content="https://suhyoung89pro.github.io/og.png" />
+    <meta property="og:image:alt" content="YOLO 산업 적용 논문 아카이브" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>YOLO 산업 적용 논문 | 결과·성능·인용</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./site-additions.css" />
+    <link rel="stylesheet" href="./yolo-research.css" />
+    <script src="./yolo-research.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">본문으로 건너뛰기</a>
+
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="identity" href="./index.html" aria-label="홈페이지로 이동">
+          suhyoung89pro<span>.</span>
+        </a>
+        <div class="header-actions">
+          <a class="nav-link" href="./index.html">홈</a>
+          <a class="nav-link" href="./services.html">서비스</a>
+          <a class="nav-link" href="./use-cases.html">활용 분야</a>
+          <a class="nav-link" href="./content-radar/">콘텐츠</a>
+          <a class="nav-link" href="./yolo-research.html" aria-current="page">YOLO 논문</a>
+          <a
+            class="kakao-link"
+            href="https://open.kakao.com/o/sXB5RXyi"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            카카오톡 문의
+          </a>
+          <a class="github-link" href="https://github.com/suhyoung89pro">
+            GitHub <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </header>
+
+      <main id="content" class="research-main">
+        <section class="research-hero" aria-labelledby="research-title">
+          <p class="kicker">YOLO · Industrial Research</p>
+          <h1 id="research-title">YOLO 산업 적용<br /><span>논문 아카이브</span></h1>
+          <p class="research-lead">
+            산업 현장에 YOLO 모델을 적용한 공개 연구 중 검토와 게시 승인을 마친 자료만
+            정리합니다. 논문이 보고한 결과 이미지, 성능 조건, 인용 정보와 원문을 함께
+            확인할 수 있습니다.
+          </p>
+        </section>
+
+        <section class="research-principles" aria-label="자료 정리 원칙">
+          <article>
+            <span>01</span>
+            <strong>승인된 자료만 공개</strong>
+            <p>자동 수집 후보 중 사람이 검토하고 게시한 사례만 표시합니다.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <strong>논문 보고값 유지</strong>
+            <p>성능 수치는 원 논문의 평가 데이터셋과 조건을 함께 확인해야 합니다.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <strong>원문으로 연결</strong>
+            <p>DOI, 논문, 코드 등 확인 가능한 공개 출처를 카드에 연결합니다.</p>
+          </article>
+        </section>
+
+        <section
+          id="approved-papers"
+          class="research-list-section"
+          aria-labelledby="approved-papers-title"
+          aria-busy="true"
+        >
+          <div class="research-section-heading">
+            <div>
+              <p>Approved papers</p>
+              <h2 id="approved-papers-title">승인된 산업 적용 사례</h2>
+            </div>
+            <p class="comparison-note">
+              데이터셋·해상도·하드웨어·평가 방식이 다른 수치는 직접적인 순위 비교에
+              적합하지 않습니다.
+            </p>
+          </div>
+
+          <div id="research-status" class="research-status" role="status" aria-live="polite">
+            <strong>승인된 자료를 불러오는 중입니다.</strong>
+            <span>잠시만 기다려 주세요.</span>
+          </div>
+
+          <div id="research-grid" class="research-grid" aria-label="YOLO 산업 적용 논문" hidden></div>
+
+          <noscript>
+            <div class="research-status research-status-error">
+              <strong>JavaScript가 필요합니다.</strong>
+              <span>승인된 논문 목록을 보려면 브라우저에서 JavaScript를 활성화해 주세요.</span>
+            </div>
+          </noscript>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <p>© 2026 suhyoung89pro</p>
+        <p>Computer Vision · Machine Vision · AI</p>
+      </footer>
+    </div>
+  </body>
+</html>
