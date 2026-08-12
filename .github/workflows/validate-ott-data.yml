@@ -1,0 +1,56 @@
+name: Validate OTT data
+
+on:
+  pull_request:
+    paths:
+      - "content-radar/data/ott/**"
+      - "scripts/ott/**"
+      - ".github/workflows/validate-ott-data.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-ott-data-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Check out changes
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Smoke-test the authorized import pipeline
+        shell: bash
+        run: |
+          export CONTENT_RADAR_DATA_DIR="$RUNNER_TEMP/ott-smoke"
+          node scripts/ott/import-netflix.mjs --input scripts/ott/fixtures/authorized-sample.tsv
+          node scripts/ott/build.mjs
+          node scripts/ott/validate.mjs
+
+      - name: Rebuild published OTT data
+        run: node scripts/ott/build.mjs
+
+      - name: Validate OTT data
+        run: node scripts/ott/validate.mjs
+
+      - name: Verify generated data is committed
+        shell: bash
+        run: |
+          changes="$(git status --porcelain -- content-radar/data/ott)"
+          if [[ -n "$changes" ]]; then
+            echo "$changes"
+            echo "::error::Generated OTT data is not up to date. Run node scripts/ott/build.mjs and commit the result."
+            exit 1
+          fi
