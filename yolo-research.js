@@ -43,11 +43,18 @@ function safeUrl(value) {
 
 function normalizeLinks(record) {
   const links = [];
+  const imageCaption = textValue(
+    firstValue(record, ["imageCaption", "image_caption", "resultImageCaption"]),
+  );
   const candidates = [
     ["논문 원문", firstValue(record, ["paperUrl", "paper_url", "publicationUrl", "url"])],
     ["이미지 출처", firstValue(record, ["imageSourceUrl", "image_source_url"])],
     ["코드", firstValue(record, ["codeUrl", "code_url", "githubUrl"])],
   ];
+
+  if (/\bCC BY 4\.0\b/i.test(imageCaption)) {
+    candidates.push(["CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/"]);
+  }
 
   candidates.forEach(([label, value]) => {
     const url = safeUrl(value);
@@ -134,7 +141,7 @@ function createResultVisual(paper) {
   figure.className = "paper-result";
   const image = document.createElement("img");
   image.src = paper.imageUrl;
-  image.alt = paper.imageAlt || `${paper.application} 검출 결과`;
+  image.alt = paper.imageAlt || `${paper.application} 결과 이미지`;
   image.loading = "lazy";
   image.decoding = "async";
   image.referrerPolicy = "no-referrer";
