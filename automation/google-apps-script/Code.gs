@@ -12,6 +12,7 @@ var YOLO_CONFIG = {
   timeZone: "Asia/Seoul",
   crossrefEndpoint: "https://api.crossref.org/works",
   maxCandidatesPerRun: 100,
+  maxImageCandidatesPerRun: 10,
   weeklyHandler: "collectYoloCandidates"
 };
 
@@ -52,6 +53,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("YOLO 사례 조사")
     .addItem("지금 조사 실행", "collectYoloCandidates")
+    .addItem("빈 결과 이미지 후보 찾기", "fillMissingImageCandidates")
     .addItem("주간 자동 조사 설치", "installWeeklyTrigger")
     .addItem("게시 가능 행 점검", "showPublishSummary")
     .addToUi();
@@ -129,7 +131,10 @@ function collectYoloCandidates() {
       return candidates.length >= YOLO_CONFIG.maxCandidatesPerRun;
     });
 
-    if (candidates.length) appendCandidates_(reviewSheet, candidates);
+    if (candidates.length) {
+      var startRow = appendCandidates_(reviewSheet, candidates);
+      fillImageCandidatesInRows_(reviewSheet, startRow, candidates.length);
+    }
 
     var message = candidates.length + "건의 새 후보를 추가했습니다.";
     if (failures.length) message += " 검색 오류 " + failures.length + "건은 실행 로그를 확인하세요.";
@@ -191,20 +196,12 @@ function isPublishableRow_(row) {
   var publishApproved = row[0] === true;
   var sourceVerified = row[1] === true;
   var metricContextVerified = row[2] === true;
-  var imageRightsVerified = row[3] === true;
   var title = stringValue_(row[7]);
-  var imageUrl = httpsUrl_(row[15]);
-  var imageSourceUrl = httpsUrl_(row[16]);
-  var imageLicense = stringValue_(row[17]);
   var doi = normalizeDoi_(row[21]);
   var paperUrl = httpsUrl_(row[22]) || (doi ? "https://doi.org/" + doi : "");
 
   if (!publishApproved || !sourceVerified || !metricContextVerified) return false;
   if (!title || !paperUrl) return false;
-
-  if (stringValue_(row[15])) {
-    if (!imageUrl || !imageRightsVerified || !imageSourceUrl || !imageLicense) return false;
-  }
 
   return true;
 }
@@ -212,8 +209,9 @@ function isPublishableRow_(row) {
 function rowToPublicItem_(row) {
   var doi = normalizeDoi_(row[21]);
   var paperUrl = httpsUrl_(row[22]) || (doi ? "https://doi.org/" + doi : "");
-  var imageUrl = httpsUrl_(row[15]);
-  var imageSourceUrl = imageUrl ? httpsUrl_(row[16]) : "";
+  var approvedImage = approvedImageFromRow_(row);
+  var imageUrl = approvedImage ? approvedImage.url : "";
+  var imageSourceUrl = approvedImage ? approvedImage.sourceUrl : "";
   var codeUrl = httpsUrl_(row[23]);
   var evidenceUrls = [paperUrl, doi ? "https://doi.org/" + doi : ""]
     .filter(function (url, index, urls) {
@@ -239,7 +237,7 @@ function rowToPublicItem_(row) {
     metricContext: stringValue_(row[14]),
     imageUrl: imageUrl,
     imageSourceUrl: imageSourceUrl,
-    imageCaption: imageUrl ? "이미지 라이선스: " + stringValue_(row[17]) : "",
+    imageCaption: "",
     authors: stringValue_(row[18]),
     venue: stringValue_(row[19]),
     year: stringValue_(row[20]),
@@ -254,6 +252,25 @@ function rowToPublicItem_(row) {
     },
     evidenceUrls: evidenceUrls
   };
+}
+
+function approvedImageFromRow_(row) {
+  if (row[3] !== true) return null;
+
+  var imageUrl = httpsUrl_(row[15]);
+  var imageSourceUrl = httpsUrl_(row[16]);
+  var imageLicense = stringValue_(row[17]);
+  if (!imageUrl || !imageSourceUrl || !isReusableImageLicense_(imageLicense)) return null;
+
+  return {
+    url: imageUrl,
+    sourceUrl: imageSourceUrl,
+    license: imageLicense
+  };
+}
+
+function isReusableImageLicense_(value) {
+  return /^(?:CC BY 4\.0)(?:\s*[·|-].*)?$/i.test(stringValue_(value));
 }
 
 function readSearchSettings_(sheet) {
@@ -343,6 +360,328 @@ function crossrefWorkToCandidate_(work, setting) {
   };
 }
 
+function fillMissingImageCandidates() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) {
+    throw new Error("다른 조사 작업이 실행 중입니다. 잠시 후 다시 시도해 주세요.");
+  }
+
+  try {
+    var spreadsheet = openSpreadsheet_();
+    var sheet = getRequiredSheet_(spreadsheet, YOLO_CONFIG.reviewSheet);
+    validateReviewHeaders_(sheet);
+
+    var result = fillImageCandidatesInRows_(sheet, 2, Math.max(0, lastCandidateRow_(sheet) - 1));
+    spreadsheet.toast(
+      result.filled + "건의 이미지 후보를 찾았습니다. " +
+        "이미지를 확인한 뒤 '이미지 권리 확인'을 다시 체크해 주세요.",
+      "YOLO 이미지 조사",
+      8
+    );
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function fillImageCandidatesInRows_(sheet, startRow, rowCount) {
+  if (rowCount < 1) return { filled: 0, reviewed: 0 };
+
+  var rows = sheet.getRange(startRow, 1, rowCount, REVIEW_HEADERS.length).getValues();
+  var filled = 0;
+  var reviewed = 0;
+
+  for (var index = 0; index < rows.length; index += 1) {
+    if (reviewed >= YOLO_CONFIG.maxImageCandidatesPerRun) break;
+
+    var row = rows[index];
+    var sheetRow = startRow + index;
+    if (!stringValue_(row[4])) continue;
+    var hasImageFields = [row[15], row[16], row[17]].some(function (value) {
+      return stringValue_(value);
+    });
+    var legacyAutoCandidate = row[3] !== true && hasImageFields &&
+      /자동 후보(?! v2)/.test(stringValue_(row[17]));
+    if (row[3] === true || (hasImageFields && !legacyAutoCandidate)) continue;
+    var auditNote = stringValue_(row[29]);
+    if (!legacyAutoCandidate && /자동 이미지 후보:|자동 이미지 조사:/.test(auditNote)) continue;
+
+    reviewed += 1;
+    var result;
+    try {
+      result = findImageCandidate_(normalizeDoi_(row[21]), httpsUrl_(row[22]));
+    } catch (error) {
+      updateImageAuditNote_(sheet, sheetRow, "자동 이미지 조사 오류: " + error.message);
+      continue;
+    }
+
+    if (!result || !result.imageUrl) {
+      if (legacyAutoCandidate) clearImageCandidate_(sheet, sheetRow);
+      updateImageAuditNote_(sheet, sheetRow, result && result.note
+        ? result.note
+        : "자동 이미지 조사: 지원하는 웹 Figure를 찾지 못했습니다.");
+      continue;
+    }
+
+    writeImageCandidate_(sheet, sheetRow, result);
+    filled += 1;
+  }
+
+  return { filled: filled, reviewed: reviewed };
+}
+
+function findImageCandidate_(doi, paperUrl) {
+  var mdpi = mdpiAssetFromDoi_(doi);
+  if (mdpi) return extractMdpiImageCandidate_(mdpi, paperUrl || "https://doi.org/" + doi);
+
+  if (/^https:\/\/(?:www\.)?researchsquare\.com\//i.test(paperUrl)) {
+    return extractResearchSquareImageCandidate_(paperUrl);
+  }
+
+  if (/^10\.21203\/rs\.3\.rs-/i.test(doi)) {
+    var match = doi.match(/(rs-\d+)\/v(\d+)$/i);
+    if (match) {
+      return extractResearchSquareImageCandidate_(
+        "https://www.researchsquare.com/article/" + match[1].toLowerCase() + "/v" + match[2]
+      );
+    }
+  }
+
+  if (/^https:\/\/(?:www\.)?engrxiv\.org\//i.test(paperUrl) || /^10\.31224\//i.test(doi)) {
+    return { note: "자동 이미지 조사: 웹 Figure 없음 · PDF 추출 필요" };
+  }
+
+  return { note: "자동 이미지 조사: 현재 지원하지 않는 출판사입니다." };
+}
+
+function mdpiAssetFromDoi_(doi) {
+  var match = stringValue_(doi).match(/^10\.3390\/([a-z]+)(\d{4})(\d{4,5})$/i);
+  if (!match) return null;
+
+  var doiJournal = match[1].toLowerCase();
+  var journal = {
+    app: "applsci",
+    math: "mathematics",
+    s: "sensors"
+  }[doiJournal] || doiJournal;
+  var volume = String(Number(match[2].slice(0, 2)));
+  var article = ("00000" + Number(match[3])).slice(-5);
+  return {
+    journal: journal,
+    asset: journal + "-" + ("00" + volume).slice(-2) + "-" + article
+  };
+}
+
+function extractMdpiImageCandidate_(asset, articleUrl) {
+  var base = "https://mdpi-res.com/d_attachment/" + asset.journal + "/" + asset.asset +
+    "/article_deploy/";
+  var response = fetchPublicResource_(base + asset.asset + ".xml", "application/xml,text/xml");
+  var xml = response.getContentText();
+
+  if (!/creativecommons\.org\/licenses\/by\/4\.0\/?/i.test(xml)) {
+    return { note: "자동 이미지 조사: 재사용 가능한 CC BY 4.0 라이선스를 확인하지 못했습니다." };
+  }
+
+  var figures = parseMdpiFigures_(xml);
+  var selected = chooseResultFigure_(figures);
+  if (!selected) return { note: "자동 이미지 조사: 결과형 Figure 후보가 없습니다." };
+  if (hasThirdPartyRightsWarning_(selected.caption)) {
+    return { note: "자동 이미지 조사: 제3자 Figure 가능성이 있어 수동 확인이 필요합니다." };
+  }
+
+  var imageName = selected.graphic.replace(/\.(?:tiff?|png|jpe?g)$/i, ".png");
+  var imageUrl = base + "html/images/" + imageName;
+  if (!verifyImageUrl_(imageUrl)) {
+    return { note: "자동 이미지 조사: Figure 이미지 주소를 확인하지 못했습니다." };
+  }
+
+  return {
+    imageUrl: imageUrl,
+    sourceUrl: articleUrl,
+    license: "CC BY 4.0 · " + selected.label + " · 자동 후보 v2",
+    note: "자동 이미지 후보: " + selected.label + " · " + selected.caption
+  };
+}
+
+function parseMdpiFigures_(xml) {
+  return stringValue_(xml).match(/<fig\b[\s\S]*?<\/fig>/gi) || [];
+}
+
+function parseMdpiFigure_(block) {
+  return {
+    label: cleanXmlText_(firstMatch_(block, /<label\b[^>]*>([\s\S]*?)<\/label>/i)),
+    caption: cleanXmlText_(firstMatch_(block, /<caption\b[^>]*>([\s\S]*?)<\/caption>/i)),
+    graphic: firstMatch_(block, /<graphic\b[^>]*(?:xlink:href|href)=["']([^"']+)["']/i)
+  };
+}
+
+function extractResearchSquareImageCandidate_(articleUrl) {
+  var response = fetchPublicResource_(articleUrl, "text/html");
+  var html = response.getContentText();
+  var jsonText = firstMatch_(html, /<script\b[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (!jsonText) return { note: "자동 이미지 조사: Research Square 웹 데이터를 찾지 못했습니다." };
+
+  var payload;
+  try {
+    payload = JSON.parse(jsonText);
+  } catch (error) {
+    payload = JSON.parse(decodeHtmlEntities_(jsonText));
+  }
+  var initialData = payload.props.pageProps.initialData;
+  if (!initialData) return { note: "자동 이미지 조사: Research Square 논문 데이터를 읽지 못했습니다." };
+
+  var licenseName = cleanText_(initialData.license && initialData.license.name);
+  if (!/^CC BY 4\.0$/i.test(licenseName)) {
+    return { note: "자동 이미지 조사: 재사용 가능한 CC BY 4.0 라이선스를 확인하지 못했습니다." };
+  }
+
+  var files = Array.isArray(initialData.files) ? initialData.files : [];
+  var figures = files.filter(function (file) {
+    return stringValue_(file.role).toLowerCase() === "figure" && httpsUrl_(file.url);
+  }).map(function (file, index) {
+    return {
+      label: "Figure " + (index + 1),
+      caption: cleanText_(file.legend),
+      graphic: httpsUrl_(file.url)
+    };
+  });
+
+  if (!figures.length) {
+    return {
+      note: initialData.isAuthorSuppliedPdf
+        ? "자동 이미지 조사: 웹 Figure 없음 · PDF 추출 필요"
+        : "자동 이미지 조사: Research Square에 별도 Figure 파일이 없습니다."
+    };
+  }
+
+  var selected = chooseResultFigure_(figures);
+  if (!selected || !verifyImageUrl_(selected.graphic)) {
+    return { note: "자동 이미지 조사: 유효한 결과형 Figure 후보가 없습니다." };
+  }
+  if (hasThirdPartyRightsWarning_(selected.caption)) {
+    return { note: "자동 이미지 조사: 제3자 Figure 가능성이 있어 수동 확인이 필요합니다." };
+  }
+
+  return {
+    imageUrl: selected.graphic,
+    sourceUrl: articleUrl,
+    license: "CC BY 4.0 · " + selected.label + " · 자동 후보 v2",
+    note: "자동 이미지 후보: " + selected.label + " · " + selected.caption
+  };
+}
+
+function chooseResultFigure_(figures) {
+  var ranked = figures.map(function (figure) {
+    var parsed = typeof figure === "string" ? parseMdpiFigure_(figure) : figure;
+    return { figure: parsed, score: scoreResultFigure_(parsed.caption) };
+  }).filter(function (entry) {
+    return entry.figure.graphic && entry.score >= 6 && !hasThirdPartyRightsWarning_(entry.figure.caption);
+  }).sort(function (left, right) {
+    return right.score - left.score;
+  });
+
+  return ranked.length ? ranked[0].figure : null;
+}
+
+function scoreResultFigure_(caption) {
+  var text = stringValue_(caption).toLowerCase();
+  var score = 0;
+  [
+    [/visual comparison|qualitative (?:comparison|results?)/, 12],
+    [/(?:detection|inference|prediction|recognition) (?:results?|examples?)|results? (?:of|for|from)[^.]{0,80}(?:detect|infer|predict|recogn)/, 10],
+    [/bounding box|locali[sz]ation|identified|identification/, 3],
+    [/test (?:set|dataset)|defect/, 2],
+    [/comparison/, 1],
+    [/architecture|framework|module|workflow|flowchart|schematic/, -12],
+    [/map|precision|recall|metric|flops|parameters?|training speed|radar chart|p[–-]?r curves?|loss curves?|confusion matrix/, -12],
+    [/dataset annotation|dataset statistics|distribution|histograms?|feature maps?|heatmaps?|grad-cam|classes/, -8]
+  ].forEach(function (rule) {
+    if (rule[0].test(text)) score += rule[1];
+  });
+  return score;
+}
+
+function hasThirdPartyRightsWarning_(caption) {
+  var text = stringValue_(caption);
+  return /reproduced|adapted|permission|copyright|©|\[\s*\d+(?:\s*,\s*\d+)*\s*\]/i.test(text);
+}
+
+function verifyImageUrl_(url) {
+  try {
+    var response = fetchPublicResource_(url, "image/avif,image/webp,image/png,image/jpeg");
+    var contentType = stringValue_(response.getHeaders()["Content-Type"] || response.getHeaders()["content-type"]);
+    var bytes = response.getBlob().getBytes().length;
+    return /^image\/(?:png|jpeg|webp|avif)$/i.test(contentType.split(";")[0]) &&
+      bytes >= 5000 && bytes <= 15000000;
+  } catch (error) {
+    return false;
+  }
+}
+
+function fetchPublicResource_(url, accept) {
+  var safeUrl = httpsUrl_(url);
+  if (!safeUrl || !isAllowedResearchHost_(safeUrl)) throw new Error("허용되지 않은 원격 주소입니다.");
+
+  var response = UrlFetchApp.fetch(safeUrl, {
+    muteHttpExceptions: true,
+    followRedirects: true,
+    headers: {
+      Accept: accept,
+      "User-Agent": "YOLOIndustrialCaseReview/1.1 (https://github.com/suhyoung89pro/suhyoung89pro.github.io)"
+    }
+  });
+  var status = response.getResponseCode();
+  if (status < 200 || status >= 300) throw new Error("원격 자료 HTTP " + status);
+  return response;
+}
+
+function isAllowedResearchHost_(url) {
+  return /^https:\/\/(?:mdpi-res\.com|www\.researchsquare\.com|researchsquare\.com|assets(?:-eu)?\.researchsquare\.com)\//i.test(url);
+}
+
+function writeImageCandidate_(sheet, rowNumber, result) {
+  sheet.getRange(rowNumber, 4).setValue(false);
+  SpreadsheetApp.flush();
+  sheet.getRange(rowNumber, 16, 1, 3).setValues([[
+    result.imageUrl,
+    result.sourceUrl,
+    result.license
+  ]]);
+  sheet.getRange(rowNumber, 29).setValue("이미지 검토 필요");
+  updateImageAuditNote_(sheet, rowNumber, result.note);
+}
+
+function clearImageCandidate_(sheet, rowNumber) {
+  sheet.getRange(rowNumber, 4).setValue(false);
+  sheet.getRange(rowNumber, 16, 1, 3).clearContent();
+  sheet.getRange(rowNumber, 29).setValue("검토 대기");
+}
+
+function updateImageAuditNote_(sheet, rowNumber, message) {
+  var cell = sheet.getRange(rowNumber, 30);
+  var existing = stringValue_(cell.getValue())
+    .replace(/(?:^|\n)자동 이미지 (?:후보|조사)[^\n]*/g, "")
+    .trim();
+  cell.setValue([existing, stringValue_(message)].filter(Boolean).join("\n"));
+}
+
+function firstMatch_(value, pattern) {
+  var match = stringValue_(value).match(pattern);
+  return match ? match[1] : "";
+}
+
+function cleanXmlText_(value) {
+  return cleanText_(decodeHtmlEntities_(value));
+}
+
+function decodeHtmlEntities_(value) {
+  return stringValue_(value)
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&amp;/gi, "&");
+}
+
 function appendCandidates_(sheet, candidates) {
   var now = new Date();
   var values = candidates.map(function (candidate) {
@@ -386,6 +725,7 @@ function appendCandidates_(sheet, candidates) {
     .getRange(startRow, 1, values.length, 4)
     .setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
   sheet.getRange(startRow, 27, values.length, 2).setNumberFormat("yyyy-mm-dd");
+  return startRow;
 }
 
 function nextWriteRow_(sheet) {
