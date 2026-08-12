@@ -184,9 +184,6 @@ function isPublishableRow_(row) {
   var metricContextVerified = row[2] === true;
   var imageRightsVerified = row[3] === true;
   var title = stringValue_(row[7]);
-  var metricName = stringValue_(row[12]);
-  var metricValue = stringValue_(row[13]);
-  var metricContext = stringValue_(row[14]);
   var imageUrl = httpsUrl_(row[15]);
   var imageSourceUrl = httpsUrl_(row[16]);
   var imageLicense = stringValue_(row[17]);
@@ -194,7 +191,7 @@ function isPublishableRow_(row) {
   var paperUrl = httpsUrl_(row[22]) || (doi ? "https://doi.org/" + doi : "");
 
   if (!publishApproved || !sourceVerified || !metricContextVerified) return false;
-  if (!title || !paperUrl || !metricName || !metricValue || !metricContext) return false;
+  if (!title || !paperUrl) return false;
 
   if (stringValue_(row[15])) {
     if (!imageUrl || !imageRightsVerified || !imageSourceUrl || !imageLicense) return false;
