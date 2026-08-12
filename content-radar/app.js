@@ -12,16 +12,11 @@ const state = {
 
 const elements = {
   categoryList: document.querySelector("#category-list"),
-  trendList: document.querySelector("#trend-list"),
   rankingGrid: document.querySelector("#ranking-grid"),
   rankingStatus: document.querySelector("#ranking-status"),
   selectedCategory: document.querySelector("#selected-category"),
-  selectedDescription: document.querySelector("#selected-description"),
   dataUpdated: document.querySelector("#data-updated"),
   dataMode: document.querySelector("#data-mode"),
-  dataNoticeTitle: document.querySelector("#data-notice-title"),
-  dataNoticeCopy: document.querySelector("#data-notice-copy"),
-  resultsHeading: document.querySelector("#results-heading"),
   rankingNote: document.querySelector("#ranking-note"),
 };
 
@@ -67,25 +62,6 @@ function renderCategories() {
     fragment.append(createCategoryButton(category));
   });
   elements.categoryList.replaceChildren(fragment);
-}
-
-function renderTrends(categoryId) {
-  const trends = state.catalog.trends.filter((trend) => trend.categoryId === categoryId);
-  if (!trends.length) {
-    elements.trendList.replaceChildren(
-      makeElement("span", "radar-loading", "이 카테고리의 트렌드 신호를 준비하고 있습니다."),
-    );
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-  trends.forEach((trend) => {
-    const chip = makeElement("span", "radar-trend-chip");
-    chip.append(makeElement("span", "", trend.label));
-    chip.append(makeElement("small", "", `${state.dataSource === "generated" ? "자동 수집" : "샘플"} · ${trend.status}`));
-    fragment.append(chip);
-  });
-  elements.trendList.replaceChildren(fragment);
 }
 
 function isSafeUrl(value) {
@@ -138,23 +114,19 @@ function createRankingItem(item, isGeneratedOtt = false) {
   body.append(makeElement("p", "radar-item-meta", metaParts.join(" · ")));
 
   if (isGeneratedOtt) {
-    const facts = makeElement("div", "radar-rank-facts");
+    const facts = [];
     if (state.ottPeriod === "monthly") {
-      if (item.score) facts.append(makeElement("span", "", `자체 월간 점수 ${item.score}`));
-      if (item.bestOfficialRank) {
-        facts.append(makeElement("span", "", `주간 최고 공식 ${item.bestOfficialRank}위`));
-      }
-      if (item.appearances) facts.append(makeElement("span", "", `${item.appearances}주 진입`));
+      if (item.score) facts.push(`${item.score}점`);
+      if (item.bestOfficialRank) facts.push(`주간 최고 ${item.bestOfficialRank}위`);
+      if (item.appearances) facts.push(`${item.appearances}주 반영`);
     } else {
-      if (item.officialRank) facts.append(makeElement("span", "", `공식 전체 ${item.officialRank}위`));
+      if (item.officialRank) facts.push(`전체 ${item.officialRank}위`);
       const movement = formatMovement(item);
-      if (movement) facts.append(makeElement("span", "", movement));
-      if (item.weeksInTop10) facts.append(makeElement("span", "", `차트 ${item.weeksInTop10}주`));
+      if (movement) facts.push(movement);
+      if (item.weeksInTop10) facts.push(`차트 ${item.weeksInTop10}주`);
     }
-    if (facts.childElementCount) body.append(facts);
+    if (facts.length) body.append(makeElement("p", "radar-rank-facts", facts.join(" · ")));
   }
-
-  if (item.summary) body.append(makeElement("p", "radar-item-summary", item.summary));
 
   if (Array.isArray(item.people) && item.people.length) {
     const details = makeElement("details", "radar-item-details");
@@ -199,7 +171,7 @@ function createRankingPanel(ranking) {
   const header = makeElement("div", "radar-ranking-header");
   const headingGroup = makeElement("div");
   headingGroup.append(makeElement("span", "", ranking.eyebrow));
-  const heading = makeElement("h3", "", ranking.label);
+  const heading = makeElement("h3", "", ranking.label.replace(/TOP\s*5/i, "TOP 3"));
   heading.id = `ranking-${ranking.medium}`;
   headingGroup.append(heading);
   header.append(headingGroup);
@@ -230,7 +202,7 @@ function createRankingPanel(ranking) {
   }
 
   const list = makeElement("ol", "radar-ranking-list");
-  items.slice(0, ranking.limit || 5).forEach((item) => {
+  items.slice(0, ranking.limit || 3).forEach((item) => {
     list.append(createRankingItem(item, Boolean(ranking.periods)));
   });
   panel.append(list);
@@ -242,14 +214,11 @@ function renderRankings(categoryId) {
   const rankings = state.catalog.rankings[categoryId];
 
   elements.selectedCategory.textContent = category.name;
-  elements.selectedDescription.textContent = category.description;
   elements.rankingGrid.setAttribute("aria-busy", "false");
   elements.rankingGrid.classList.toggle(
     "radar-ranking-grid--generated",
     state.dataSource === "generated",
   );
-  elements.resultsHeading.textContent = state.dataSource === "generated" ? "카테고리별 TOP 3" : "카테고리별 TOP 5";
-
   if (!rankings) {
     elements.rankingGrid.replaceChildren(
       makeElement(
@@ -267,8 +236,7 @@ function renderRankings(categoryId) {
     if (rankings[medium]) fragment.append(createRankingPanel(rankings[medium]));
   });
   elements.rankingGrid.replaceChildren(fragment);
-  const limitLabel = state.dataSource === "generated" ? "TOP 3" : "TOP 5";
-  elements.rankingStatus.textContent = `${category.name} 카테고리의 매체별 ${limitLabel}를 표시했습니다.`;
+  elements.rankingStatus.textContent = `${category.name} 카테고리의 매체별 TOP 3를 표시했습니다.`;
 }
 
 function selectCategory(categoryId) {
@@ -277,7 +245,6 @@ function selectCategory(categoryId) {
   elements.categoryList.querySelectorAll("button").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.categoryId === categoryId));
   });
-  renderTrends(categoryId);
   renderRankings(categoryId);
 }
 
@@ -286,7 +253,6 @@ function validateCatalog(catalog) {
     catalog &&
     typeof catalog.updatedAt === "string" &&
     Array.isArray(catalog.categories) &&
-    Array.isArray(catalog.trends) &&
     catalog.rankings &&
     typeof catalog.rankings === "object"
   );
@@ -410,14 +376,10 @@ async function fetchJson(url) {
 
 function setDataMode(mode) {
   const isGenerated = mode === "generated";
-  elements.dataMode.textContent = isGenerated ? "자동 수집" : "MVP 샘플";
-  elements.dataNoticeTitle.textContent = isGenerated ? "허가된 순위 데이터 연동" : "MVP 샘플 데이터";
-  elements.dataNoticeCopy.textContent = isGenerated
-    ? "사용 권한이 확인된 OTT 순위를 주간 스냅숏으로 보관합니다. 주제별 분류와 출연자·SNS 연결은 검수된 항목만 공개합니다."
-    : "사용 권한이 확인된 순위 데이터가 없어 샘플 카탈로그를 표시합니다. 승인된 데이터를 가져오면 최신 순위로 전환됩니다.";
+  elements.dataMode.textContent = isGenerated ? "최신 데이터" : "샘플";
   elements.rankingNote.textContent = isGenerated
-    ? "OTT 공식 전체 순위에서 TOP 3를 표시합니다. 주제별 순위는 검수된 카테고리 매핑이며 OTT가 직접 발표한 카테고리 순위가 아닙니다."
-    : "TV·OTT·YouTube는 집계 방식이 서로 달라 하나의 종합 점수로 합치지 않고 매체별로 구분합니다.";
+    ? "공식 순위 기반 · 카테고리는 자체 분류"
+    : "샘플 데이터 · 실제 순위 연동 전";
 }
 
 async function loadCatalog() {
@@ -455,9 +417,6 @@ async function loadCatalog() {
     elements.dataUpdated.textContent = "확인 필요";
     elements.categoryList.replaceChildren(
       makeElement("span", "radar-loading", "카테고리를 불러오지 못했습니다."),
-    );
-    elements.trendList.replaceChildren(
-      makeElement("span", "radar-loading", "트렌드를 불러오지 못했습니다."),
     );
     elements.rankingGrid.setAttribute("aria-busy", "false");
     elements.rankingGrid.replaceChildren(

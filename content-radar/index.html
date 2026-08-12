@@ -50,75 +50,29 @@
       <main id="content" class="radar-main">
         <section class="radar-hero" aria-labelledby="radar-title">
           <div>
-            <p class="kicker">TV / OTT / YouTube / Social</p>
-            <h1 id="radar-title">콘텐츠를 찾는<br /><span>새로운 기준.</span></h1>
+            <p class="kicker">Content Radar</p>
+            <h1 id="radar-title">카테고리별<br /><span>콘텐츠 TOP 3</span></h1>
+            <p class="radar-hero-summary">주간·월간 순위와 출연자 SNS를 한눈에.</p>
           </div>
-          <div class="radar-hero-copy">
-            <p>
-              관심 카테고리를 고르면 OTT 주간·월간 TOP 3와 시즌별 출연자를 살펴보고
-              검수된 공식 SNS까지 이어서 확인할 수 있습니다.
-            </p>
-            <dl class="radar-status-card">
-              <div>
-                <dt>현재 버전</dt>
-                <dd id="data-mode">확인 중</dd>
-              </div>
-              <div>
-                <dt>데이터 기준일</dt>
-                <dd id="data-updated">불러오는 중</dd>
-              </div>
-              <div>
-                <dt>예정 업데이트</dt>
-                <dd>주 1회</dd>
-              </div>
-            </dl>
-          </div>
+          <p class="radar-hero-meta">
+            <span id="data-mode">확인 중</span>
+            <span aria-hidden="true">·</span>
+            <span id="data-updated">불러오는 중</span>
+          </p>
         </section>
 
-        <aside class="radar-notice" aria-label="MVP 데이터 안내">
-          <strong id="data-notice-title">데이터 확인 중</strong>
-          <p id="data-notice-copy">자동 생성 데이터와 샘플 카탈로그를 확인하고 있습니다.</p>
-        </aside>
-
         <section class="radar-controls" aria-labelledby="category-heading">
-          <div class="radar-section-heading">
-            <div>
-              <p>01 / Category</p>
-              <h2 id="category-heading">관심 분야를 선택하세요</h2>
-            </div>
-            <p>고정 대분류 위에 최신 트렌드 태그를 매주 덧붙이는 방식입니다.</p>
-          </div>
+          <h2 id="category-heading">카테고리</h2>
           <div id="category-list" class="radar-category-list" aria-label="콘텐츠 카테고리">
             <span class="radar-loading">카테고리를 불러오는 중입니다.</span>
           </div>
         </section>
 
-        <section class="radar-trends" aria-labelledby="trend-heading">
-          <div class="radar-trend-title">
-            <span>Trend Signal</span>
-            <h2 id="trend-heading">이번 주 주목 키워드</h2>
-          </div>
-          <div id="trend-list" class="radar-trend-list">
-            <span class="radar-loading">트렌드를 불러오는 중입니다.</span>
-          </div>
-        </section>
-
         <section class="radar-results" aria-labelledby="results-heading">
           <div class="radar-results-heading">
-            <div>
-              <p>02 / Rankings</p>
-              <h2 id="results-heading">카테고리별 TOP 3</h2>
-            </div>
-            <div>
-              <strong id="selected-category">요리</strong>
-              <p id="selected-description">레시피, 맛집, 푸드 예능과 크리에이터</p>
-            </div>
+            <h2 id="results-heading"><span id="selected-category">요리</span> TOP 3</h2>
+            <p id="ranking-note">샘플 데이터 · 실제 순위 연동 전</p>
           </div>
-
-          <p id="ranking-note" class="radar-ranking-note">
-            TV·OTT·YouTube는 집계 방식이 서로 달라 하나의 종합 점수로 합치지 않고
-            매체별로 구분합니다.
-          </p>
 
           <div id="ranking-status" class="radar-sr-status" aria-live="polite"></div>
           <div id="ranking-grid" class="radar-ranking-grid" aria-busy="true">
@@ -128,38 +82,11 @@
             <p class="radar-empty-state">순위를 보려면 브라우저에서 JavaScript를 활성화해 주세요.</p>
           </noscript>
         </section>
-
-        <section class="radar-method" aria-labelledby="method-heading">
-          <div class="radar-section-heading">
-            <div>
-              <p>03 / Method</p>
-              <h2 id="method-heading">실데이터 전환 원칙</h2>
-            </div>
-            <p>발견은 자동화하되, 사람과 공식 계정의 연결은 공개 전에 검수합니다.</p>
-          </div>
-          <div class="radar-method-grid">
-            <article>
-              <span>TV</span>
-              <h3>동일 기준 안에서 비교</h3>
-              <p>방송 유형과 조사 기준을 분리하고, 같은 기간의 시청률만 비교합니다.</p>
-            </article>
-            <article>
-              <span>OTT</span>
-              <h3>플랫폼별 순위 유지</h3>
-              <p>서로 다른 플랫폼의 지표를 억지로 합치지 않고 출처와 기준일을 함께 표시합니다.</p>
-            </article>
-            <article>
-              <span>YouTube &amp; SNS</span>
-              <h3>후보 생성 후 검수</h3>
-              <p>이름만으로 확정하지 않고 공식 홈페이지, 교차 링크와 본인 인증 근거를 확인합니다.</p>
-            </article>
-          </div>
-        </section>
       </main>
 
       <footer class="site-footer">
         <p>© 2026 suhyoung89pro</p>
-        <p>Content Radar · MVP Preview</p>
+        <p>Content Radar</p>
       </footer>
     </div>
 
