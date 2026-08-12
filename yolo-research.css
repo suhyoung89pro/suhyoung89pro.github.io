@@ -280,22 +280,6 @@
   object-fit: contain;
 }
 
-.paper-image-credit {
-  position: absolute;
-  top: 0.65rem;
-  right: 0.65rem;
-  padding: 0.38rem 0.55rem;
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 5px 18px rgba(21, 34, 56, 0.1);
-  color: #465064;
-  font-size: 0.58rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  backdrop-filter: blur(8px);
-}
-
 .paper-result-placeholder {
   display: grid;
   aspect-ratio: 16 / 10;
