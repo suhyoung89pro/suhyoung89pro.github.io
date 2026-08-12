@@ -11,9 +11,13 @@ var YOLO_CONFIG = {
   settingsSheet: "검색 설정",
   timeZone: "Asia/Seoul",
   crossrefEndpoint: "https://api.crossref.org/works",
+  pdfCandidatesUrl: "https://raw.githubusercontent.com/suhyoung89pro/suhyoung89pro.github.io/main/automation/pdf-figure-worker/output/candidates.json",
   maxCandidatesPerRun: 100,
   maxImageCandidatesPerRun: 10,
-  weeklyHandler: "collectYoloCandidates"
+  maxPdfQueueItems: 50,
+  maxPdfCandidatesBytes: 1000000,
+  weeklyHandler: "collectYoloCandidates",
+  pdfDailyHandler: "syncPdfFigureCandidates"
 };
 
 var REVIEW_HEADERS = [
@@ -54,7 +58,9 @@ function onOpen() {
     .createMenu("YOLO 사례 조사")
     .addItem("지금 조사 실행", "collectYoloCandidates")
     .addItem("빈 결과 이미지 후보 찾기", "fillMissingImageCandidates")
+    .addItem("PDF 결과 이미지 후보 동기화", "syncPdfFigureCandidates")
     .addItem("주간 자동 조사 설치", "installWeeklyTrigger")
+    .addItem("PDF 후보 일일 동기화 설치", "installPdfSyncDailyTrigger")
     .addItem("게시 가능 행 점검", "showPublishSummary")
     .addToUi();
 }
@@ -78,6 +84,29 @@ function installWeeklyTrigger() {
   openSpreadsheet_().toast(
     "매주 월요일 오전 8시에 후보를 조사합니다.",
     "YOLO 사례 조사",
+    6
+  );
+}
+
+function installPdfSyncDailyTrigger() {
+  rememberBoundSpreadsheet_();
+
+  var existingTriggers = ScriptApp.getProjectTriggers().filter(function (trigger) {
+    return trigger.getHandlerFunction() === YOLO_CONFIG.pdfDailyHandler;
+  });
+  ScriptApp.newTrigger(YOLO_CONFIG.pdfDailyHandler)
+    .timeBased()
+    .everyDays(1)
+    .atHour(9)
+    .inTimezone(YOLO_CONFIG.timeZone)
+    .create();
+  existingTriggers.forEach(function (trigger) {
+    ScriptApp.deleteTrigger(trigger);
+  });
+
+  openSpreadsheet_().toast(
+    "매일 오전 9시에 GitHub의 PDF 이미지 후보를 동기화합니다.",
+    "YOLO PDF 이미지 조사",
     6
   );
 }
@@ -147,12 +176,16 @@ function collectYoloCandidates() {
 }
 
 function doGet(event) {
-  var items = readPublishedItems_();
-  var response = {
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
-    items: items
-  };
+  var mode = event && event.parameter
+    ? stringValue_(event.parameter.mode)
+    : "";
+  var response = mode === "pdf-queue"
+    ? readPdfQueue_()
+    : {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        items: readPublishedItems_()
+      };
   var json = JSON.stringify(response);
   var callback = event && event.parameter
     ? stringValue_(event.parameter.callback)
@@ -174,6 +207,52 @@ function showPublishSummary() {
     "게시 가능 행 점검",
     6
   );
+}
+
+function readPdfQueue_() {
+  var sheet = getRequiredSheet_(openSpreadsheet_(), YOLO_CONFIG.reviewSheet);
+  validateReviewHeaders_(sheet);
+
+  var lastRow = lastCandidateRow_(sheet);
+  if (lastRow < 2) {
+    return { schemaVersion: 1, generatedAt: new Date().toISOString(), items: [] };
+  }
+
+  var rows = sheet.getRange(2, 1, lastRow - 1, REVIEW_HEADERS.length).getValues();
+  var items = [];
+  rows.some(function (row) {
+    if (items.length >= YOLO_CONFIG.maxPdfQueueItems) return true;
+    if (row[3] === true || hasAnyImageField_(row)) return false;
+
+    var paperId = stringValue_(row[4]);
+    var title = stringValue_(row[7]);
+    var doi = normalizeDoi_(row[21]);
+    var paperUrl = httpsUrl_(row[22]) || (doi ? "https://doi.org/" + doi : "");
+    if (!paperId || !title || !paperUrl || !isSupportedPdfQueuePaper_(doi, paperUrl)) return false;
+
+    items.push({
+      paperId: paperId,
+      title: title,
+      doi: doi,
+      paperUrl: paperUrl
+    });
+    return false;
+  });
+
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    items: items
+  };
+}
+
+function isSupportedPdfQueuePaper_(doi, paperUrl) {
+  var normalizedDoi = normalizeDoi_(doi);
+  var url = httpsUrl_(paperUrl);
+  return /^10\.31224\//i.test(normalizedDoi) ||
+    /^10\.21203\/rs\.3\.rs-/i.test(normalizedDoi) ||
+    /^https:\/\/(?:www\.)?engrxiv\.org\//i.test(url) ||
+    /^https:\/\/(?:www\.)?researchsquare\.com\//i.test(url);
 }
 
 function readPublishedItems_() {
@@ -381,6 +460,229 @@ function fillMissingImageCandidates() {
   } finally {
     lock.releaseLock();
   }
+}
+
+function syncPdfFigureCandidates(event) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) {
+    console.warn("다른 조사 작업이 실행 중이어서 PDF 이미지 후보 동기화를 건너뜁니다.");
+    return { synced: 0, skipped: 0, invalid: 0, locked: true };
+  }
+
+  try {
+    var spreadsheet = openSpreadsheet_();
+    var sheet = getRequiredSheet_(spreadsheet, YOLO_CONFIG.reviewSheet);
+    validateReviewHeaders_(sheet);
+    var result = syncPdfFigureCandidates_(sheet, fetchPdfCandidateManifest_());
+
+    if (!event || !event.triggerUid) {
+      spreadsheet.toast(
+        result.synced + "건의 PDF 이미지 후보를 가져왔습니다. " +
+          "건너뜀 " + result.skipped + "건, 무효 " + result.invalid + "건",
+        "YOLO PDF 이미지 조사",
+        8
+      );
+    }
+    return result;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function fetchPdfCandidateManifest_() {
+  var response = UrlFetchApp.fetch(YOLO_CONFIG.pdfCandidatesUrl, {
+    muteHttpExceptions: true,
+    followRedirects: false,
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "YOLOIndustrialCaseReview/1.2 (https://github.com/suhyoung89pro/suhyoung89pro.github.io)"
+    }
+  });
+  var status = response.getResponseCode();
+  if (status !== 200) throw new Error("PDF 후보 목록 HTTP " + status);
+  if (response.getContent().length > YOLO_CONFIG.maxPdfCandidatesBytes) {
+    throw new Error("PDF 후보 목록이 허용 크기를 초과했습니다.");
+  }
+
+  var manifest;
+  try {
+    manifest = JSON.parse(response.getContentText("UTF-8"));
+  } catch (error) {
+    throw new Error("PDF 후보 목록이 올바른 JSON이 아닙니다.");
+  }
+
+  if (!manifest || Array.isArray(manifest) || manifest.schemaVersion !== 1 ||
+      !Array.isArray(manifest.candidates) ||
+      manifest.candidates.length > YOLO_CONFIG.maxPdfQueueItems ||
+      typeof manifest.generatedAt !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(manifest.generatedAt) ||
+      isNaN(new Date(manifest.generatedAt).getTime())) {
+    throw new Error("PDF 후보 목록 스키마가 올바르지 않습니다.");
+  }
+  return manifest;
+}
+
+function syncPdfFigureCandidates_(sheet, manifest) {
+  var lastRow = lastCandidateRow_(sheet);
+  if (lastRow < 2) return { synced: 0, skipped: 0, invalid: 0 };
+
+  var rows = sheet.getRange(2, 1, lastRow - 1, REVIEW_HEADERS.length).getValues();
+  var rowsById = {};
+  rows.forEach(function (row, index) {
+    var paperId = stringValue_(row[4]);
+    var key = "id:" + paperId;
+    if (!paperId) return;
+    if (!Object.prototype.hasOwnProperty.call(rowsById, key)) {
+      rowsById[key] = { row: row, rowNumber: index + 2 };
+    } else {
+      rowsById[key] = null;
+    }
+  });
+
+  var synced = 0;
+  var skipped = 0;
+  var invalid = 0;
+  var seenIds = {};
+  var warnings = [];
+
+  manifest.candidates.forEach(function (value, index) {
+    var candidate;
+    try {
+      candidate = validatePdfCandidate_(value);
+    } catch (error) {
+      invalid += 1;
+      warnings.push("후보 " + (index + 1) + ": " + error.message);
+      return;
+    }
+
+    var candidateKey = "id:" + candidate.paperId;
+    if (seenIds[candidateKey]) {
+      invalid += 1;
+      warnings.push("중복 사례 ID: " + candidate.paperId);
+      return;
+    }
+    seenIds[candidateKey] = true;
+
+    var target = rowsById[candidateKey];
+    if (!target || !pdfCandidateMatchesRow_(candidate, target.row)) {
+      skipped += 1;
+      return;
+    }
+    if (!writePdfCandidateIfEmpty_(sheet, target.rowNumber, candidate)) {
+      skipped += 1;
+      return;
+    }
+    synced += 1;
+  });
+
+  if (warnings.length) console.warn(warnings.join("\n"));
+  return { synced: synced, skipped: skipped, invalid: invalid };
+}
+
+function validatePdfCandidate_(value) {
+  if (!value || Array.isArray(value) || typeof value !== "object") {
+    throw new Error("객체가 아닙니다.");
+  }
+
+  var paperId = requiredBoundedString_(value.paperId, 128, "paperId");
+  var paperUrl = requiredBoundedString_(value.paperUrl, 2000, "paperUrl");
+  var imageUrl = requiredBoundedString_(value.imageUrl, 2000, "imageUrl");
+  var sourceUrl = requiredBoundedString_(value.sourceUrl, 2000, "sourceUrl");
+  var license = requiredBoundedString_(value.license, 80, "license");
+  var figureLabel = requiredBoundedString_(value.figureLabel, 100, "figureLabel");
+  var note = requiredBoundedString_(value.note, 1000, "note");
+  if (/^[=+@-]/.test(figureLabel) || /^[=+@-]/.test(note)) {
+    throw new Error("시트 수식으로 해석될 수 있는 텍스트는 허용되지 않습니다.");
+  }
+  if (typeof value.doi !== "string" || value.doi.length > 300) {
+    throw new Error("doi 형식이 올바르지 않습니다.");
+  }
+  var doi = stringValue_(value.doi);
+  if (doi && !normalizeDoi_(doi)) throw new Error("doi 형식이 올바르지 않습니다.");
+  doi = normalizeDoi_(doi);
+
+  if (!isSafePublicHttpsUrl_(paperUrl)) throw new Error("paperUrl 호스트가 올바르지 않습니다.");
+  if (!isAllowedPdfImageUrl_(imageUrl)) throw new Error("imageUrl 저장소 경로가 허용되지 않습니다.");
+  if (!isSafePublicHttpsUrl_(sourceUrl)) throw new Error("sourceUrl 호스트가 올바르지 않습니다.");
+  if (license !== "CC BY 4.0") throw new Error("CC BY 4.0 후보만 허용됩니다.");
+
+  return {
+    paperId: paperId,
+    doi: doi,
+    paperUrl: paperUrl,
+    imageUrl: imageUrl,
+    sourceUrl: sourceUrl,
+    license: license,
+    figureLabel: cleanText_(figureLabel),
+    note: cleanText_(note)
+  };
+}
+
+function requiredBoundedString_(value, maxLength, name) {
+  if (typeof value !== "string" || !stringValue_(value) || value.length > maxLength) {
+    throw new Error(name + " 형식이 올바르지 않습니다.");
+  }
+  return stringValue_(value);
+}
+
+function isAllowedPdfImageUrl_(url) {
+  var prefix = "https://raw.githubusercontent.com/suhyoung89pro/suhyoung89pro.github.io/main/assets/yolo-research/auto/";
+  var value = httpsUrl_(url);
+  if (!value || value.indexOf(prefix) !== 0) return false;
+
+  var path = value.slice(prefix.length);
+  if (!path || path.length > 500 || /[?#\\%]/.test(path) || /(?:^|\/)\.{1,2}(?:\/|$)/.test(path)) {
+    return false;
+  }
+  return /^[A-Za-z0-9][A-Za-z0-9._/-]*\.(?:png|jpe?g|webp)$/i.test(path);
+}
+
+function isSafePublicHttpsUrl_(url) {
+  var value = httpsUrl_(url);
+  if (!value) return false;
+  var match = value.match(/^https:\/\/([^/?#]+)/i);
+  if (!match || match[1].indexOf(":") !== -1) return false;
+
+  var host = match[1].toLowerCase().replace(/\.$/, "");
+  if (!/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(host)) {
+    return false;
+  }
+  return host !== "localhost" && !/^\d+(?:\.\d+){3}$/.test(host);
+}
+
+function pdfCandidateMatchesRow_(candidate, row) {
+  var rowDoi = normalizeDoi_(row[21]);
+  var rowPaperUrl = httpsUrl_(row[22]) || (rowDoi ? "https://doi.org/" + rowDoi : "");
+  return candidate.paperId === stringValue_(row[4]) &&
+    candidate.doi.toLowerCase() === rowDoi.toLowerCase() &&
+    comparableUrl_(candidate.paperUrl) === comparableUrl_(rowPaperUrl);
+}
+
+function comparableUrl_(value) {
+  return httpsUrl_(value).replace(/#.*$/, "").replace(/\/$/, "");
+}
+
+function writePdfCandidateIfEmpty_(sheet, rowNumber, candidate) {
+  var current = sheet.getRange(rowNumber, 4, 1, 15).getValues()[0];
+  var hasManualImageFields = [current[12], current[13], current[14]].some(function (value) {
+    return stringValue_(value);
+  });
+  if (current[0] === true || hasManualImageFields) return false;
+
+  var detail = [candidate.figureLabel, candidate.note].filter(Boolean).join(" · ");
+  writeImageCandidate_(sheet, rowNumber, {
+    imageUrl: candidate.imageUrl,
+    sourceUrl: candidate.sourceUrl,
+    license: candidate.license,
+    note: "자동 이미지 후보: PDF · " + truncate_(detail, 900)
+  });
+  return true;
+}
+
+function hasAnyImageField_(row) {
+  return [row[15], row[16], row[17]].some(function (value) {
+    return stringValue_(value);
+  });
 }
 
 function fillImageCandidatesInRows_(sheet, startRow, rowCount) {
