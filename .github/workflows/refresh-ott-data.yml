@@ -1,0 +1,165 @@
+name: Refresh authorized OTT data
+
+on:
+  schedule:
+    # Wednesday through Friday at 09:17 KST. Later runs retry delayed weekly feeds.
+    - cron: "17 0 * * 3-5"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: refresh-authorized-ott-data
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.changes.outputs.changed }}
+      base_sha: ${{ steps.base.outputs.sha }}
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+
+      - name: Check feed configuration
+        id: config
+        shell: bash
+        env:
+          FEED_SOURCE_ID: ${{ vars.OTT_FEED_SOURCE_ID }}
+        run: |
+          if [[ -z "$FEED_SOURCE_ID" ]]; then
+            if [[ -d content-radar/data/ott/snapshots || -f content-radar/data/ott/generated/latest.json ]]; then
+              echo "::error::OTT_FEED_SOURCE_ID is missing while published data exists."
+              exit 1
+            fi
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Authorized feed is not configured; nothing to do." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Record base revision
+        if: steps.config.outputs.configured == 'true'
+        id: base
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        if: steps.config.outputs.configured == 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Download authorized feed
+        if: steps.config.outputs.configured == 'true'
+        env:
+          OTT_FEED_SOURCE_ID: ${{ vars.OTT_FEED_SOURCE_ID }}
+          OTT_FEED_TOKEN: ${{ secrets.OTT_FEED_TOKEN }}
+        run: node scripts/ott/fetch-authorized-feed.mjs --output "$RUNNER_TEMP/ott-feed.tsv"
+
+      - name: Import and build rankings
+        if: steps.config.outputs.configured == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/ott/import-netflix.mjs \
+            --input "$RUNNER_TEMP/ott-feed.tsv" \
+            --max-age-days 14
+          node scripts/ott/build.mjs
+          node scripts/ott/validate.mjs --require-data
+          node scripts/ott/build.mjs --check
+          git diff --check
+
+      - name: Detect validated changes
+        if: steps.config.outputs.configured == 'true'
+        id: changes
+        shell: bash
+        run: |
+          if [[ -n "$(git status --porcelain -- content-radar/data/ott)" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Authorized OTT data is already current." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Prepare validated data artifact
+        if: steps.changes.outputs.changed == 'true'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/publish/content-radar/data"
+          cp -a content-radar/data/ott "$RUNNER_TEMP/publish/content-radar/data/ott"
+
+      - name: Upload validated data
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: validated-ott-data
+          path: ${{ runner.temp }}/publish
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: collect
+    if: needs.collect.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: write
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Stop if main changed during collection
+        env:
+          EXPECTED_SHA: ${{ needs.collect.outputs.base_sha }}
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Download validated data
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: validated-ott-data
+          path: .
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Revalidate publish payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/ott/validate.mjs --require-data
+          node scripts/ott/build.mjs --check
+          git diff --check
+
+      - name: Commit validated data
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "${{ needs.collect.outputs.base_sha }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- content-radar/data/ott
+          git commit -m "data(ott): refresh authorized weekly rankings"
+          git push origin HEAD:main
+
+      - name: Deploy refreshed site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref main

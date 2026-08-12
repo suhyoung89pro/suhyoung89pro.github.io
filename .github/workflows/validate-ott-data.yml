@@ -6,6 +6,8 @@ on:
       - "content-radar/data/ott/**"
       - "scripts/ott/**"
       - ".github/workflows/validate-ott-data.yml"
+      - ".github/workflows/refresh-ott-data.yml"
+      - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
 permissions:
@@ -24,12 +26,27 @@ jobs:
 
     steps:
       - name: Check out changes
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
+
+      - name: Check authorized feed endpoint policy
+        env:
+          OTT_FEED_SOURCE_ID: fixture
+        run: node scripts/ott/fetch-authorized-feed.mjs --check --config scripts/ott/fixtures/feed-sources.json
+
+      - name: Check strict calendar validation
+        shell: bash
+        run: |
+          node --input-type=module -e \
+            "import { findBestMatch, isSunday } from './scripts/ott/lib.mjs'; \
+            if (isSunday('2026-02-29')) process.exit(1); \
+            const item = { title: 'Show', seasonTitle: 'Season 2' }; \
+            const match = findBestMatch([{ title: 'Show' }, { title: 'Show', seasonTitle: 'Season 2' }].map(value => ({ platform: 'netflix', market: 'KR', ...value })), item); \
+            if (match.seasonTitle !== 'Season 2') process.exit(1)"
 
       - name: Smoke-test the authorized import pipeline
         shell: bash
@@ -37,7 +54,8 @@ jobs:
           export CONTENT_RADAR_DATA_DIR="$RUNNER_TEMP/ott-smoke"
           node scripts/ott/import-netflix.mjs --input scripts/ott/fixtures/authorized-sample.tsv
           node scripts/ott/build.mjs
-          node scripts/ott/validate.mjs
+          node scripts/ott/validate.mjs --require-data
+          node scripts/ott/build.mjs --check
 
       - name: Rebuild published OTT data
         run: node scripts/ott/build.mjs

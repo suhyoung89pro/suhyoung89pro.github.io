@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "id": "fixture",
+      "url": "https://feed.example.com/rankings.tsv",
+      "status": "reviewed"
+    }
+  ]
+}
