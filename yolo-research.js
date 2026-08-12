@@ -334,6 +334,41 @@ async function fetchJson(url, options = {}) {
   return response.json();
 }
 
+function fetchJsonp(url) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `__yoloResearchFeed_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement("script");
+    const separator = url.includes("?") ? "&" : "?";
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("FEED_TIMEOUT"));
+    }, FEED_TIMEOUT_MS);
+
+    function cleanup() {
+      window.clearTimeout(timeout);
+      script.remove();
+      delete window[callbackName];
+    }
+
+    window[callbackName] = (payload) => {
+      cleanup();
+      resolve(payload);
+    };
+    script.async = true;
+    script.referrerPolicy = "no-referrer";
+    script.src = `${url}${separator}callback=${encodeURIComponent(callbackName)}`;
+    script.addEventListener(
+      "error",
+      () => {
+        cleanup();
+        reject(new Error("FEED_SCRIPT_ERROR"));
+      },
+      { once: true },
+    );
+    document.head.append(script);
+  });
+}
+
 async function loadResearch() {
   try {
     const config = await fetchJson(CONFIG_URL, { cache: "no-store" });
@@ -348,14 +383,7 @@ async function loadResearch() {
       return;
     }
 
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), FEED_TIMEOUT_MS);
-    let payload;
-    try {
-      payload = await fetchJson(feedUrl, { cache: "no-store", signal: controller.signal });
-    } finally {
-      window.clearTimeout(timeout);
-    }
+    const payload = await fetchJsonp(feedUrl);
 
     const papers = extractRecords(payload)
       .filter(isPublishable)
