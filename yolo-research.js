@@ -1,7 +1,6 @@
 const CONFIG_URL = "./yolo-research-config.json";
 const FEED_TIMEOUT_MS = 30000;
 const ALL_INDUSTRIES = "__all__";
-const CC_BY_4_URL = "https://creativecommons.org/licenses/by/4.0/";
 
 const statusElement = document.querySelector("#research-status");
 const gridElement = document.querySelector("#research-grid");
@@ -70,23 +69,6 @@ function normalizeLinks(record) {
   return links;
 }
 
-function normalizeImageCredit(record) {
-  const caption = textValue(
-    firstValue(record, ["imageCaption", "image_caption", "resultImageCaption"]),
-  );
-  if (!/\bCC BY 4\.0\b/i.test(caption)) return null;
-
-  const figure = caption.match(/\b(?:figure|fig\.?)\s*(\d+)\b/i);
-  const label = [figure ? `Fig. ${figure[1]}` : "Image", "CC BY 4.0"];
-  if (/(?:크롭|cropped|일부\s*발췌)/i.test(caption)) label.push("일부 발췌");
-
-  return {
-    label: label.join(" · "),
-    title: caption,
-    url: CC_BY_4_URL,
-  };
-}
-
 function normalizeRecord(record) {
   if (!record || typeof record !== "object") return null;
 
@@ -116,7 +98,6 @@ function normalizeRecord(record) {
       firstValue(record, ["resultImageUrl", "result_image_url", "imageUrl", "image_url", "resultImage"]),
     ),
     imageAlt: textValue(firstValue(record, ["imageAlt", "image_alt", "resultImageAlt"])),
-    imageCredit: normalizeImageCredit(record),
     links: normalizeLinks(record),
   };
 }
@@ -157,18 +138,6 @@ function createResultVisual(paper) {
     once: true,
   });
   figure.append(image);
-
-  if (paper.imageCredit) {
-    const credit = document.createElement("a");
-    credit.className = "paper-image-credit";
-    credit.href = paper.imageCredit.url;
-    credit.target = "_blank";
-    credit.rel = "noopener noreferrer";
-    credit.textContent = paper.imageCredit.label;
-    credit.title = paper.imageCredit.title;
-    credit.setAttribute("aria-label", `${paper.imageCredit.title} 라이선스 보기`);
-    figure.append(credit);
-  }
 
   return figure;
 }
