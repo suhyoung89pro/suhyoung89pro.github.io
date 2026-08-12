@@ -1,9 +1,14 @@
 const CONFIG_URL = "./yolo-research-config.json";
 const FEED_TIMEOUT_MS = 30000;
+const ALL_INDUSTRIES = "__all__";
 
 const statusElement = document.querySelector("#research-status");
 const gridElement = document.querySelector("#research-grid");
+const filtersElement = document.querySelector("#industry-filters");
 const listSection = document.querySelector("#approved-papers");
+
+let approvedPapers = [];
+let activeIndustry = ALL_INDUSTRIES;
 
 function firstValue(record, keys) {
   for (const key of keys) {
@@ -36,141 +41,67 @@ function safeUrl(value) {
   }
 }
 
-function normalizeMetrics(value, record) {
-  const metrics = [];
-
-  if (Array.isArray(value)) {
-    value.forEach((item) => {
-      if (item && typeof item === "object") {
-        const label = textValue(firstValue(item, ["label", "name", "metric"]));
-        const metricValue = textValue(firstValue(item, ["value", "result", "score"]));
-        if (label && metricValue) metrics.push({ label, value: metricValue });
-      } else if (textValue(item)) {
-        metrics.push({ label: "보고 성능", value: textValue(item) });
-      }
-    });
-  } else if (value && typeof value === "object") {
-    Object.entries(value).forEach(([label, metricValue]) => {
-      const normalizedValue = textValue(metricValue);
-      if (!label.toLowerCase().endsWith("url") && normalizedValue) {
-        const displayLabels = {
-          map: "mAP",
-          map50: "mAP@0.5",
-          precision: "Precision",
-          recall: "Recall",
-          fps: "FPS",
-        };
-        metrics.push({ label: displayLabels[label.toLowerCase()] || label, value: normalizedValue });
-      }
-    });
-  } else if (textValue(value)) {
-    metrics.push({ label: "보고 성능", value: textValue(value) });
-  }
-
-  const commonMetrics = [
-    ["mAP", ["mAP", "map"]],
-    ["mAP@0.5", ["mAP50", "map50", "mAP@0.5"]],
-    ["Precision", ["precision", "Precision"]],
-    ["Recall", ["recall", "Recall"]],
-    ["FPS", ["fps", "FPS"]],
-  ];
-
-  commonMetrics.forEach(([label, keys]) => {
-    const metricValue = textValue(firstValue(record, keys));
-    const alreadyIncluded = metrics.some((metric) => metric.label.toLowerCase() === label.toLowerCase());
-    if (metricValue && !alreadyIncluded) metrics.push({ label, value: metricValue });
-  });
-
-  return metrics;
-}
-
 function normalizeLinks(record) {
   const links = [];
-  const feedLinks = firstValue(record, ["links", "resources"]);
-  const evidenceLinks = firstValue(record, ["evidenceUrls", "evidence_urls"]);
+  const candidates = [
+    ["논문 원문", firstValue(record, ["paperUrl", "paper_url", "publicationUrl", "url"])],
+    ["이미지 출처", firstValue(record, ["imageSourceUrl", "image_source_url"])],
+    ["코드", firstValue(record, ["codeUrl", "code_url", "githubUrl"])],
+  ];
 
-  if (Array.isArray(feedLinks)) {
-    feedLinks.forEach((link) => {
-      if (!link || typeof link !== "object") return;
-      const url = safeUrl(firstValue(link, ["url", "href"]));
-      if (url) links.push({ label: textValue(firstValue(link, ["label", "name"])) || "관련 자료", url });
-    });
-  }
-
-  if (Array.isArray(evidenceLinks)) {
-    evidenceLinks.forEach((evidence, index) => {
-      const url = safeUrl(
-        evidence && typeof evidence === "object" ? firstValue(evidence, ["url", "href"]) : evidence,
-      );
-      if (url) links.push({ label: `근거 자료 ${index + 1}`, url });
-    });
-  }
-
-  [
-    ["논문 원문", ["paperUrl", "paper_url", "publicationUrl", "url"]],
-    ["DOI", ["doiUrl", "doi_url"]],
-    ["코드", ["codeUrl", "code_url", "githubUrl"]],
-    ["출처", ["sourceUrl", "source_url"]],
-    ["이미지 출처", ["imageSourceUrl", "image_source_url"]],
-    ["데이터셋", ["datasetUrl", "dataset_url"]],
-  ].forEach(([label, keys]) => {
-    let url = safeUrl(firstValue(record, keys));
-    if (!url && label === "DOI") {
-      const doi = textValue(record.doi)
-        .replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "")
-        .replace(/^doi:\s*/i, "")
-        .trim();
-      if (/^10\.\d{4,9}\/\S+$/i.test(doi)) url = safeUrl(`https://doi.org/${doi}`);
-    }
+  candidates.forEach(([label, value]) => {
+    const url = safeUrl(value);
     if (url) links.push({ label, url });
   });
 
-  const metricEvidenceUrl = safeUrl(
-    record.metrics && typeof record.metrics === "object"
-      ? firstValue(record.metrics, ["evidenceUrl", "evidence_url"])
-      : "",
-  );
-  if (metricEvidenceUrl) links.push({ label: "성능 근거", url: metricEvidenceUrl });
+  if (!links.some((link) => link.label === "논문 원문")) {
+    const doi = textValue(record.doi)
+      .replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "")
+      .replace(/^doi:\s*/i, "")
+      .trim();
+    if (/^10\.\d{4,9}\/\S+$/i.test(doi)) {
+      const url = safeUrl(`https://doi.org/${doi}`);
+      if (url) links.unshift({ label: "논문 원문", url });
+    }
+  }
 
-  return links.filter((link, index) => links.findIndex((candidate) => candidate.url === link.url) === index);
+  return links.filter(
+    (link, index) => links.findIndex((candidate) => candidate.url === link.url) === index,
+  );
 }
 
 function normalizeRecord(record) {
   if (!record || typeof record !== "object") return null;
 
-  const title = textValue(firstValue(record, ["title", "paperTitle", "paper_title", "논문명", "논문 제목"]));
+  const title = textValue(
+    firstValue(record, ["title", "paperTitle", "paper_title", "논문명", "논문 제목"]),
+  );
   if (!title) return null;
-
-  const performance = firstValue(record, ["metrics", "performance", "results", "reportedPerformance"]);
-  const citationValue = firstValue(record, ["citation", "ieeeCitation", "formattedCitation", "인용"]);
-  const citation =
-    citationValue && typeof citationValue === "object"
-      ? textValue(firstValue(citationValue, ["text", "formatted", "value"]))
-      : textValue(citationValue);
-  const citationCount =
-    citationValue && typeof citationValue === "object"
-      ? textValue(firstValue(citationValue, ["count", "citationCount"]))
-      : textValue(firstValue(record, ["citationCount", "citedByCount"]));
 
   return {
     title,
-    industry: textValue(firstValue(record, ["industry", "sector", "domain", "산업"])),
-    year: textValue(firstValue(record, ["year", "publicationYear", "publication_year", "발행연도"])),
+    industry:
+      textValue(firstValue(record, ["industry", "sector", "domain", "산업"])) || "기타",
+    application:
+      textValue(
+        firstValue(record, ["application", "useCase", "use_case", "task", "적용 사례", "적용분야"]),
+      ) || "산업 적용 사례",
+    summary: textValue(
+      firstValue(record, ["summary", "applicationSummary", "description", "abstract", "요약"]),
+    ),
+    model: textValue(
+      firstValue(record, ["model", "yoloModel", "yoloVersion", "modelVersion", "모델"]),
+    ),
     authors: textValue(firstValue(record, ["authors", "author", "저자"])),
     venue: textValue(firstValue(record, ["venue", "journal", "conference", "publisher", "학술지"])),
-    summary: textValue(firstValue(record, ["summary", "applicationSummary", "description", "abstract", "요약"])),
-    model: textValue(firstValue(record, ["model", "yoloModel", "yoloVersion", "modelVersion", "모델"])),
-    task: textValue(firstValue(record, ["task", "application", "useCase", "use_case", "적용분야"])),
-    dataset: textValue(firstValue(record, ["dataset", "data", "evaluationDataset", "데이터셋"])),
-    metrics: normalizeMetrics(performance, record),
-    metricContext: textValue(
-      firstValue(record, ["metricContext", "measurementConditions", "conditions", "측정 조건"]),
+    year: textValue(firstValue(record, ["year", "publicationYear", "publication_year", "발행연도"])),
+    imageUrl: safeUrl(
+      firstValue(record, ["resultImageUrl", "result_image_url", "imageUrl", "image_url", "resultImage"]),
     ),
-    citation,
-    citationCount,
-    imageUrl: safeUrl(firstValue(record, ["resultImageUrl", "result_image_url", "imageUrl", "image_url", "resultImage"])),
     imageAlt: textValue(firstValue(record, ["imageAlt", "image_alt", "resultImageAlt"])),
-    imageCaption: textValue(firstValue(record, ["imageCaption", "image_caption", "resultImageCaption"])),
+    imageCaption: textValue(
+      firstValue(record, ["imageCaption", "image_caption", "resultImageCaption"]),
+    ),
     links: normalizeLinks(record),
   };
 }
@@ -187,73 +118,65 @@ function extractRecords(payload) {
   return payload.items;
 }
 
-function createDefinitionList(className, rows) {
-  const list = document.createElement("dl");
-  list.className = className;
+function createResultVisual(paper) {
+  if (!paper.imageUrl) {
+    const placeholder = document.createElement("div");
+    placeholder.className = "paper-result-placeholder";
+    const title = document.createElement("strong");
+    const detail = document.createElement("span");
+    title.textContent = "결과 이미지 검토 중";
+    detail.textContent = "출처와 재사용 권한이 확인되면 공개됩니다.";
+    placeholder.append(title, detail);
+    return placeholder;
+  }
 
-  rows.forEach(({ label, value }) => {
-    const row = document.createElement("div");
-    const term = document.createElement("dt");
-    const description = document.createElement("dd");
-    term.textContent = label;
-    description.textContent = value;
-    row.append(term, description);
-    list.append(row);
+  const figure = document.createElement("figure");
+  figure.className = "paper-result";
+  const image = document.createElement("img");
+  image.src = paper.imageUrl;
+  image.alt = paper.imageAlt || `${paper.application} 검출 결과`;
+  image.loading = "lazy";
+  image.decoding = "async";
+  image.referrerPolicy = "no-referrer";
+  image.addEventListener("error", () => figure.replaceWith(createResultVisual({ ...paper, imageUrl: "" })), {
+    once: true,
   });
+  figure.append(image);
 
-  return list;
+  if (paper.imageCaption) {
+    const caption = document.createElement("figcaption");
+    caption.textContent = paper.imageCaption;
+    figure.append(caption);
+  }
+
+  return figure;
 }
 
 function createPaperCard(paper) {
   const card = document.createElement("article");
   card.className = "paper-card";
-
-  const header = document.createElement("header");
-  header.className = "paper-card-header";
-
-  const meta = document.createElement("div");
-  meta.className = "paper-card-meta";
-  const industry = document.createElement("span");
-  const year = document.createElement("span");
-  industry.textContent = paper.industry;
-  year.textContent = paper.year;
-  meta.append(industry, year);
-
-  const title = document.createElement("h3");
-  title.textContent = paper.title;
-  header.append(meta, title);
-
-  const bylineParts = [paper.authors, paper.venue].filter(Boolean);
-  if (bylineParts.length) {
-    const byline = document.createElement("p");
-    byline.className = "paper-byline";
-    byline.textContent = bylineParts.join(" · ");
-    header.append(byline);
-  }
-  card.append(header);
-
-  if (paper.imageUrl) {
-    const figure = document.createElement("figure");
-    figure.className = "paper-result";
-    const image = document.createElement("img");
-    image.src = paper.imageUrl;
-    image.alt = paper.imageAlt || `${paper.title} 결과 이미지`;
-    image.loading = "lazy";
-    image.decoding = "async";
-    image.referrerPolicy = "no-referrer";
-    image.addEventListener("error", () => figure.remove(), { once: true });
-    figure.append(image);
-
-    if (paper.imageCaption) {
-      const caption = document.createElement("figcaption");
-      caption.textContent = paper.imageCaption;
-      figure.append(caption);
-    }
-    card.append(figure);
-  }
+  card.append(createResultVisual(paper));
 
   const body = document.createElement("div");
   body.className = "paper-card-body";
+
+  const meta = document.createElement("div");
+  meta.className = "paper-card-meta";
+  [paper.industry, paper.model].filter(Boolean).forEach((value) => {
+    const item = document.createElement("span");
+    item.textContent = value;
+    meta.append(item);
+  });
+  body.append(meta);
+
+  const application = document.createElement("p");
+  application.className = "paper-application";
+  application.textContent = paper.application;
+  body.append(application);
+
+  const title = document.createElement("h3");
+  title.textContent = paper.title;
+  body.append(title);
 
   if (paper.summary) {
     const summary = document.createElement("p");
@@ -262,46 +185,25 @@ function createPaperCard(paper) {
     body.append(summary);
   }
 
-  const detailRows = [
-    { label: "YOLO 모델", value: paper.model },
-    { label: "적용 과제", value: paper.task },
-    { label: "데이터셋", value: paper.dataset },
-    { label: "측정 조건", value: paper.metricContext },
-    { label: "인용 수", value: paper.citationCount },
-  ].filter((row) => row.value);
-  if (detailRows.length) body.append(createDefinitionList("paper-details", detailRows));
-
-  if (paper.metrics.length) {
-    const metricsSection = document.createElement("section");
-    metricsSection.className = "paper-section";
-    const metricsTitle = document.createElement("h4");
-    metricsTitle.textContent = "논문 보고 성능";
-    metricsSection.append(metricsTitle, createDefinitionList("paper-metrics", paper.metrics));
-    body.append(metricsSection);
-  }
-
-  if (paper.citation) {
-    const citationSection = document.createElement("section");
-    citationSection.className = "paper-section";
-    const citationTitle = document.createElement("h4");
-    citationTitle.textContent = "인용 정보";
-    const citation = document.createElement("blockquote");
-    citation.className = "paper-citation";
-    citation.textContent = paper.citation;
-    citationSection.append(citationTitle, citation);
-    body.append(citationSection);
+  const sourceParts = [paper.authors, paper.venue, paper.year].filter(Boolean);
+  if (sourceParts.length) {
+    const sourceLine = document.createElement("p");
+    sourceLine.className = "paper-source-line";
+    sourceLine.textContent = sourceParts.join(" · ");
+    body.append(sourceLine);
   }
 
   if (paper.links.length) {
     const links = document.createElement("nav");
     links.className = "paper-links";
     links.setAttribute("aria-label", `${paper.title} 관련 링크`);
-    paper.links.forEach(({ label, url }) => {
+    paper.links.forEach(({ label, url }, index) => {
       const link = document.createElement("a");
       link.href = url;
       link.target = "_blank";
       link.rel = "noopener noreferrer";
       link.textContent = `${label} ↗`;
+      if (index === 0) link.className = "paper-link-primary";
       links.append(link);
     });
     body.append(links);
@@ -322,10 +224,62 @@ function showStatus(state, title, detail) {
   statusElement.append(heading, description);
 }
 
-function renderPapers(papers) {
-  gridElement.replaceChildren(...papers.map(createPaperCard));
+function renderFilteredPapers() {
+  const visiblePapers =
+    activeIndustry === ALL_INDUSTRIES
+      ? approvedPapers
+      : approvedPapers.filter((paper) => paper.industry === activeIndustry);
+
+  gridElement.replaceChildren(...visiblePapers.map(createPaperCard));
   gridElement.hidden = false;
-  showStatus("ready", `${papers.length}건의 승인된 논문`, "각 수치는 원문의 평가 조건과 함께 확인해 주세요.");
+
+  const scope = activeIndustry === ALL_INDUSTRIES ? "전체" : activeIndustry;
+  showStatus(
+    "ready",
+    `${visiblePapers.length}건의 승인된 사례`,
+    `${scope} 분야의 적용 장면과 논문 설명을 보여드립니다.`,
+  );
+}
+
+function renderFilters() {
+  const industries = [...new Set(approvedPapers.map((paper) => paper.industry))].sort((left, right) =>
+    left.localeCompare(right, "ko"),
+  );
+  const options = [ALL_INDUSTRIES, ...industries];
+
+  filtersElement.replaceChildren(
+    ...options.map((industry) => {
+      const button = document.createElement("button");
+      const count =
+        industry === ALL_INDUSTRIES
+          ? approvedPapers.length
+          : approvedPapers.filter((paper) => paper.industry === industry).length;
+      button.type = "button";
+      button.className = "research-filter";
+      button.dataset.industry = industry;
+      button.setAttribute("aria-pressed", String(industry === activeIndustry));
+      button.textContent = `${industry === ALL_INDUSTRIES ? "전체" : industry} ${count}`;
+      button.addEventListener("click", () => {
+        activeIndustry = industry;
+        filtersElement.querySelectorAll("button").forEach((filterButton) => {
+          filterButton.setAttribute(
+            "aria-pressed",
+            String(filterButton.dataset.industry === activeIndustry),
+          );
+        });
+        renderFilteredPapers();
+      });
+      return button;
+    }),
+  );
+  filtersElement.hidden = false;
+}
+
+function renderPapers(papers) {
+  approvedPapers = papers;
+  activeIndustry = ALL_INDUSTRIES;
+  renderFilters();
+  renderFilteredPapers();
 }
 
 async function fetchJson(url, options = {}) {
@@ -384,7 +338,6 @@ async function loadResearch() {
     }
 
     const payload = await fetchJsonp(feedUrl);
-
     const papers = extractRecords(payload)
       .filter(isPublishable)
       .map(normalizeRecord)
@@ -393,7 +346,7 @@ async function loadResearch() {
     if (!papers.length) {
       showStatus(
         "empty",
-        "아직 공개 승인된 논문이 없습니다.",
+        "아직 공개 승인된 사례가 없습니다.",
         "검토와 게시 승인을 마친 사례가 생기면 자동으로 업데이트됩니다.",
       );
       return;
