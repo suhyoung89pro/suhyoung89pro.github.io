@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-12T17:56:48Z",
+  "candidates": [
+    {
+      "paperId": "CR-004d1ecc5e0c6622",
+      "doi": "10.21203/rs.3.rs-9130149/v1",
+      "paperUrl": "https://doi.org/10.21203/rs.3.rs-9130149/v1",
+      "imageUrl": "https://raw.githubusercontent.com/suhyoung89pro/suhyoung89pro.github.io/main/assets/yolo-research/auto/figure-3b1737dde0a01d076ee1.webp",
+      "sourceUrl": "https://www.researchsquare.com/article/rs-9130149/v1",
+      "license": "CC BY 4.0",
+      "figureLabel": "Figure 8",
+      "note": "PDF p.24; Three examples of detection results using the proposed YOLO-HCS. (a1)–(a3) Original defect.; sha256:ee98a9ffe395ce6d"
+    },
+    {
+      "paperId": "CR-39e6d33ef2b0bc19",
+      "doi": "10.21203/rs.3.rs-8794809/v1",
+      "paperUrl": "https://doi.org/10.21203/rs.3.rs-8794809/v1",
+      "imageUrl": "https://raw.githubusercontent.com/suhyoung89pro/suhyoung89pro.github.io/main/assets/yolo-research/auto/figure-fd3429159799bee99607.webp",
+      "sourceUrl": "https://www.researchsquare.com/article/rs-8794809/v1",
+      "license": "CC BY 4.0",
+      "figureLabel": "Figure 6",
+      "note": "PDF p.8; Visualization results on the dataset: (a) Input images. (b) YOLOv8m predictions. (c) MGA-YOLO predictions.; sha256:fe6f51ef51052fcd"
+    },
+    {
+      "paperId": "CR-e99db058aaddda40",
+      "doi": "10.21203/rs.3.rs-3312918/v1",
+      "paperUrl": "https://doi.org/10.21203/rs.3.rs-3312918/v1",
+      "imageUrl": "https://raw.githubusercontent.com/suhyoung89pro/suhyoung89pro.github.io/main/assets/yolo-research/auto/figure-5bf8261d86b2ca603db8.webp",
+      "sourceUrl": "https://www.researchsquare.com/article/rs-3312918/v1",
+      "license": "CC BY 4.0",
+      "figureLabel": "Figure 11",
+      "note": "PDF p.20; Some examples of failure. The ﬁrst row shows the original defect and the second row shows the corresponding detection result. The original defects are marked by rectangles.; sha256:8070b74772a5056a"
+    },
+    {
+      "paperId": "CR-f9d3cbd0a62515de",
+      "doi": "10.21203/rs.3.rs-5369988/v1",
+      "paperUrl": "https://doi.org/10.21203/rs.3.rs-5369988/v1",
+      "imageUrl": "https://raw.githubusercontent.com/suhyoung89pro/suhyoung89pro.github.io/main/assets/yolo-research/auto/figure-0d67b1cc9edebf8015ba.webp",
+      "sourceUrl": "https://www.researchsquare.com/article/rs-5369988/v1",
+      "license": "CC BY 4.0",
+      "figureLabel": "Figure 12",
+      "note": "PDF p.23; Comparison of detection results between YOLOv8n and ESW-YOLO.; sha256:725a2b172e531f82"
+    }
+  ]
+}
