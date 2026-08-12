@@ -1,6 +1,7 @@
 const CONFIG_URL = "./yolo-research-config.json";
 const FEED_TIMEOUT_MS = 30000;
 const ALL_INDUSTRIES = "__all__";
+const CC_BY_4_URL = "https://creativecommons.org/licenses/by/4.0/";
 
 const statusElement = document.querySelector("#research-status");
 const gridElement = document.querySelector("#research-grid");
@@ -43,38 +44,47 @@ function safeUrl(value) {
 
 function normalizeLinks(record) {
   const links = [];
-  const imageCaption = textValue(
-    firstValue(record, ["imageCaption", "image_caption", "resultImageCaption"]),
+  let sourceUrl = safeUrl(
+    firstValue(record, ["paperUrl", "paper_url", "publicationUrl", "url"]),
   );
-  const candidates = [
-    ["논문 원문", firstValue(record, ["paperUrl", "paper_url", "publicationUrl", "url"])],
-    ["이미지 출처", firstValue(record, ["imageSourceUrl", "image_source_url"])],
-    ["코드", firstValue(record, ["codeUrl", "code_url", "githubUrl"])],
-  ];
 
-  if (/\bCC BY 4\.0\b/i.test(imageCaption)) {
-    candidates.push(["CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/"]);
-  }
-
-  candidates.forEach(([label, value]) => {
-    const url = safeUrl(value);
-    if (url) links.push({ label, url });
-  });
-
-  if (!links.some((link) => link.label === "논문 원문")) {
+  if (!sourceUrl) {
     const doi = textValue(record.doi)
       .replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "")
       .replace(/^doi:\s*/i, "")
       .trim();
     if (/^10\.\d{4,9}\/\S+$/i.test(doi)) {
-      const url = safeUrl(`https://doi.org/${doi}`);
-      if (url) links.unshift({ label: "논문 원문", url });
+      sourceUrl = safeUrl(`https://doi.org/${doi}`);
     }
   }
 
-  return links.filter(
-    (link, index) => links.findIndex((candidate) => candidate.url === link.url) === index,
+  if (!sourceUrl) {
+    sourceUrl = safeUrl(firstValue(record, ["imageSourceUrl", "image_source_url"]));
+  }
+
+  if (sourceUrl) links.push({ label: "논문·출처 보기", url: sourceUrl, kind: "primary" });
+
+  const codeUrl = safeUrl(firstValue(record, ["codeUrl", "code_url", "githubUrl"]));
+  if (codeUrl && codeUrl !== sourceUrl) links.push({ label: "코드", url: codeUrl, kind: "secondary" });
+
+  return links;
+}
+
+function normalizeImageCredit(record) {
+  const caption = textValue(
+    firstValue(record, ["imageCaption", "image_caption", "resultImageCaption"]),
   );
+  if (!/\bCC BY 4\.0\b/i.test(caption)) return null;
+
+  const figure = caption.match(/\b(?:figure|fig\.?)\s*(\d+)\b/i);
+  const label = [figure ? `Fig. ${figure[1]}` : "Image", "CC BY 4.0"];
+  if (/(?:크롭|cropped|일부\s*발췌)/i.test(caption)) label.push("일부 발췌");
+
+  return {
+    label: label.join(" · "),
+    title: caption,
+    url: CC_BY_4_URL,
+  };
 }
 
 function normalizeRecord(record) {
@@ -106,9 +116,7 @@ function normalizeRecord(record) {
       firstValue(record, ["resultImageUrl", "result_image_url", "imageUrl", "image_url", "resultImage"]),
     ),
     imageAlt: textValue(firstValue(record, ["imageAlt", "image_alt", "resultImageAlt"])),
-    imageCaption: textValue(
-      firstValue(record, ["imageCaption", "image_caption", "resultImageCaption"]),
-    ),
+    imageCredit: normalizeImageCredit(record),
     links: normalizeLinks(record),
   };
 }
@@ -150,10 +158,16 @@ function createResultVisual(paper) {
   });
   figure.append(image);
 
-  if (paper.imageCaption) {
-    const caption = document.createElement("figcaption");
-    caption.textContent = paper.imageCaption;
-    figure.append(caption);
+  if (paper.imageCredit) {
+    const credit = document.createElement("a");
+    credit.className = "paper-image-credit";
+    credit.href = paper.imageCredit.url;
+    credit.target = "_blank";
+    credit.rel = "noopener noreferrer";
+    credit.textContent = paper.imageCredit.label;
+    credit.title = paper.imageCredit.title;
+    credit.setAttribute("aria-label", `${paper.imageCredit.title} 라이선스 보기`);
+    figure.append(credit);
   }
 
   return figure;
@@ -193,27 +207,34 @@ function createPaperCard(paper) {
   }
 
   const sourceParts = [paper.authors, paper.venue, paper.year].filter(Boolean);
-  if (sourceParts.length) {
-    const sourceLine = document.createElement("p");
-    sourceLine.className = "paper-source-line";
-    sourceLine.textContent = sourceParts.join(" · ");
-    body.append(sourceLine);
-  }
+  if (sourceParts.length || paper.links.length) {
+    const footer = document.createElement("div");
+    footer.className = "paper-card-footer";
 
-  if (paper.links.length) {
-    const links = document.createElement("nav");
-    links.className = "paper-links";
-    links.setAttribute("aria-label", `${paper.title} 관련 링크`);
-    paper.links.forEach(({ label, url }, index) => {
-      const link = document.createElement("a");
-      link.href = url;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.textContent = `${label} ↗`;
-      if (index === 0) link.className = "paper-link-primary";
-      links.append(link);
-    });
-    body.append(links);
+    if (sourceParts.length) {
+      const sourceLine = document.createElement("p");
+      sourceLine.className = "paper-source-line";
+      sourceLine.textContent = sourceParts.join(" · ");
+      footer.append(sourceLine);
+    }
+
+    if (paper.links.length) {
+      const links = document.createElement("nav");
+      links.className = "paper-links";
+      links.setAttribute("aria-label", `${paper.title} 관련 링크`);
+      paper.links.forEach(({ label, url, kind }) => {
+        const link = document.createElement("a");
+        link.href = url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = `${label} ↗`;
+        if (kind === "primary") link.className = "paper-link-primary";
+        links.append(link);
+      });
+      footer.append(links);
+    }
+
+    body.append(footer);
   }
 
   card.append(body);
