@@ -38,4 +38,14 @@
 
 월간 순위는 공식 시청수가 아니라 주 종료일이 속한 달을 기준으로 각 주 순위에
 `11 - 순위` 점수를 부여한 자체 누적 지표입니다. 데이터 공급처와 별도 사용 허가가
-확보되면 해당 공급처용 예약 수집 어댑터를 추가할 수 있습니다.
+확보되면 아래 저장소 설정만 한 번 등록해 이후 작업을 AI 없이 자동화할 수 있습니다.
+
+- `content-radar/data/ott/config/feed-sources.json`: 공급처 ID와 정확한 HTTPS 주소를 검토 후 `reviewed`로 등록
+- Actions variable `OTT_FEED_SOURCE_ID`: 위 파일에 등록한 공급처 ID
+- Actions secret `OTT_FEED_TOKEN`: Bearer 인증이 필요할 때만 등록
+
+`Refresh authorized OTT data` 작업은 수~금 오전 9시 17분(KST)에 실행됩니다. 새
+주차는 수집·검증·TOP 3 생성 후 자동 커밋하고 Pages를 다시 배포합니다. 설정이
+없으면 성공 상태로 종료하며, 과거 순위 정정·오래된 피드·미래 주차·스키마 오류는
+자동 반영하지 않습니다. 새 작품은 검수 목록에만 추가되고 `reviewed` 매핑 전에는
+순위 화면에 공개되지 않습니다.

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isIP } from "node:net";
 import { readFile, readdir, stat, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +15,9 @@ export const GENERATED_DIR = path.join(DATA_DIR, "generated");
 export const REVIEW_FILE = path.join(DATA_DIR, "review/unmapped.json");
 export const SOURCE_URL = "authorized-local-import";
 export const SOURCE_NAME = "Authorized ranking data";
+export const MAX_FEED_BYTES = 50 * 1024 * 1024;
+export const MAX_FEED_ROWS = 500_000;
+export const MAX_TEXT_LENGTH = 300;
 export const EXPECTED_HEADERS = [
   "country_name",
   "country_iso2",
@@ -31,7 +35,7 @@ export function parseArgs(argv) {
     const value = argv[index];
     if (!value.startsWith("--")) throw new Error(`Unknown argument: ${value}`);
     const key = value.slice(2);
-    if (key === "backfill" || key === "check") {
+    if (["backfill", "check", "require-data"].includes(key)) {
       args[key] = true;
       continue;
     }
@@ -92,6 +96,9 @@ export function parseNetflixTsv(text) {
   const headers = rows.shift();
   if (headers.length !== EXPECTED_HEADERS.length || headers.some((value, i) => value !== EXPECTED_HEADERS[i])) {
     throw new Error(`Unexpected Netflix TSV headers: ${headers.join(", ")}`);
+  }
+  if (rows.length > MAX_FEED_ROWS) {
+    throw new Error(`Netflix TSV exceeds the ${MAX_FEED_ROWS.toLocaleString("en-US")} row limit`);
   }
 
   return rows.map((values, rowIndex) => {
@@ -155,8 +162,53 @@ export async function listFiles(directory, suffix = ".json") {
 }
 
 export function isSunday(dateString) {
-  const date = new Date(`${dateString}T00:00:00Z`);
-  return !Number.isNaN(date.getTime()) && date.getUTCDay() === 0;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateString);
+  if (!match) return false;
+  const [, year, month, day] = match.map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day &&
+    date.getUTCDay() === 0
+  );
+}
+
+export function normalizeFeedText(value, label) {
+  const normalized = String(value ?? "").normalize("NFC").trim();
+  if (!normalized) throw new Error(`${label} is empty`);
+  if (normalized.length > MAX_TEXT_LENGTH) {
+    throw new Error(`${label} exceeds ${MAX_TEXT_LENGTH} characters`);
+  }
+  if (/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/u.test(normalized)) {
+    throw new Error(`${label} contains unsafe control characters`);
+  }
+  return normalized;
+}
+
+export function parseAuthorizedFeedUrl(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("Authorized feed URL is not valid");
+  }
+
+  const hostname = url.hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "").toLowerCase();
+  if (url.protocol !== "https:") throw new Error("Authorized feed URL must use HTTPS");
+  if (url.username || url.password) throw new Error("Authorized feed URL must not contain credentials");
+  if (url.port && url.port !== "443") throw new Error("Authorized feed URL must use the default HTTPS port");
+  if (url.search || url.hash) throw new Error("Authorized feed URL must not contain a query string or fragment");
+  if (
+    isIP(hostname) ||
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local") ||
+    !hostname.includes(".")
+  ) {
+    throw new Error("Authorized feed URL must use a public DNS hostname");
+  }
+  return url;
 }
 
 export function snapshotPath(week) {
@@ -176,8 +228,66 @@ export function mappingMatches(mapping, item) {
   );
 }
 
+export function findBestMatch(candidates, item) {
+  return candidates
+    .filter((candidate) => mappingMatches(candidate, item))
+    .sort((a, b) => Number(Boolean(b.seasonTitle)) - Number(Boolean(a.seasonTitle)))[0];
+}
+
 export function isReviewed(status) {
   return ["reviewed", "verified", "human_verified", "official_verified"].includes(status);
+}
+
+const ACCOUNT_RULES = {
+  youtube: {
+    hosts: new Set(["youtube.com", "www.youtube.com"]),
+    path: /^\/(?:@[^/]+|channel\/[^/]+|c\/[^/]+|user\/[^/]+)\/?$/,
+  },
+  instagram: {
+    hosts: new Set(["instagram.com", "www.instagram.com"]),
+    path: /^\/[A-Za-z0-9._]+\/?$/,
+  },
+  tiktok: {
+    hosts: new Set(["tiktok.com", "www.tiktok.com"]),
+    path: /^\/@[^/]+\/?$/,
+  },
+  x: {
+    hosts: new Set(["x.com", "www.x.com", "twitter.com", "www.twitter.com"]),
+    path: /^\/[A-Za-z0-9_]{1,15}\/?$/,
+  },
+  threads: {
+    hosts: new Set(["threads.net", "www.threads.net"]),
+    path: /^\/@[^/]+\/?$/,
+  },
+  facebook: {
+    hosts: new Set(["facebook.com", "www.facebook.com"]),
+    path: /^\/[A-Za-z0-9.]+\/?$/,
+  },
+  linkedin: {
+    hosts: new Set(["linkedin.com", "www.linkedin.com"]),
+    path: /^\/(?:in|company)\/[^/]+\/?$/,
+  },
+};
+
+export function isApprovedAccountUrl(account) {
+  if (!account?.url || !account?.service) return false;
+  try {
+    const url = new URL(account.url);
+    const service = String(account.service).trim().toLowerCase();
+    const rule = ACCOUNT_RULES[service];
+    return (
+      url.protocol === "https:" &&
+      !url.username &&
+      !url.password &&
+      !url.port &&
+      !url.search &&
+      !url.hash &&
+      rule?.hosts.has(url.hostname.toLowerCase()) === true &&
+      rule.path.test(url.pathname)
+    );
+  } catch {
+    return false;
+  }
 }
 
 export async function pathExists(filePath) {

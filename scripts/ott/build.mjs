@@ -6,10 +6,11 @@ import {
   SNAPSHOT_DIR,
   SOURCE_NAME,
   SOURCE_URL,
+  findBestMatch,
+  isApprovedAccountUrl,
   isReviewed,
   itemKey,
   listFiles,
-  mappingMatches,
   parseArgs,
   readJson,
   writeJsonIfChanged,
@@ -43,11 +44,11 @@ const peopleById = new Map((peopleConfig.people || []).map((person) => [person.i
 const catalogById = new Map((catalog.categories || []).map((category) => [category.id, category]));
 
 function findMapping(item) {
-  return mappings.find((mapping) => mappingMatches(mapping, item));
+  return findBestMatch(mappings, item);
 }
 
 function enrichPeople(item, mapping) {
-  const alias = aliases.find((candidate) => mappingMatches(candidate, item));
+  const alias = findBestMatch(aliases, item);
   const programId = mapping?.programId || alias?.programId || null;
   const program = programsById.get(programId);
   if (!program) return { programId, people: [] };
@@ -58,16 +59,15 @@ function enrichPeople(item, mapping) {
   );
   const people = (season?.peopleIds || [])
     .map((id) => peopleById.get(id))
-    .filter(Boolean)
+    .filter((person) => person && isReviewed(person.verificationStatus))
     .map((person) => ({
       id: person.id,
       name: person.name,
       role: person.role || "출연",
-      accounts: isReviewed(person.verificationStatus)
-        ? (person.accounts || []).filter((account) =>
-            isReviewed(account.verificationStatus || account.status),
-          )
-        : [],
+      accounts: (person.accounts || []).filter(
+        (account) =>
+          isReviewed(account.verificationStatus || account.status) && isApprovedAccountUrl(account),
+      ),
       verificationStatus: person.verificationStatus || "pending",
     }));
   return { programId, people };
@@ -76,7 +76,10 @@ function enrichPeople(item, mapping) {
 function makeWeeklyItems(items, categoryId) {
   const previousRanks = new Map((previous?.categories?.TV || []).map((item) => [itemKey(item), item.officialRank]));
   return items
-    .filter((item) => categoryId === "all" || findMapping(item)?.categoryIds?.includes(categoryId))
+    .filter((item) => {
+      const mapping = findMapping(item);
+      return mapping && (categoryId === "all" || mapping.categoryIds?.includes(categoryId));
+    })
     .slice(0, 3)
     .map((item, index) => {
       const mapping = findMapping(item);
@@ -98,7 +101,8 @@ function monthRankings(monthSnapshots, categoryId) {
   const totals = new Map();
   for (const snapshot of monthSnapshots) {
     for (const item of snapshot.categories.TV) {
-      if (categoryId !== "all" && !findMapping(item)?.categoryIds?.includes(categoryId)) continue;
+      const mapping = findMapping(item);
+      if (!mapping || (categoryId !== "all" && !mapping.categoryIds?.includes(categoryId))) continue;
       const key = itemKey(item);
       const current = totals.get(key) || {
         title: item.title,
