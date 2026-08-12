@@ -141,15 +141,24 @@ function collectYoloCandidates() {
   }
 }
 
-function doGet() {
+function doGet(event) {
   var items = readPublishedItems_();
   var response = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     items: items
   };
+  var json = JSON.stringify(response);
+  var callback = event && event.parameter
+    ? stringValue_(event.parameter.callback)
+    : "";
 
-  return ContentService.createTextOutput(JSON.stringify(response))
+  if (callback && /^[A-Za-z_$][0-9A-Za-z_$]*$/.test(callback)) {
+    return ContentService.createTextOutput(callback + "(" + json + ");")
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+
+  return ContentService.createTextOutput(json)
     .setMimeType(ContentService.MimeType.JSON);
 }
 
