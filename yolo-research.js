@@ -1,5 +1,5 @@
 const CONFIG_URL = "./yolo-research-config.json";
-const FEED_TIMEOUT_MS = 12000;
+const FEED_TIMEOUT_MS = 30000;
 
 const statusElement = document.querySelector("#research-status");
 const gridElement = document.querySelector("#research-grid");
